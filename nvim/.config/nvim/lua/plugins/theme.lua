@@ -1,0 +1,1 @@
+/home/tully/.config/omarchy/current/theme/neovim.lua
