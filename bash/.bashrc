@@ -25,5 +25,5 @@ export PATH=/home/tully/.opencode/bin:$PATH
 mkcd() {
   mkdir -p "$1" && cd "$1"
 }
-
+alias yt='~/Sync/randomcode/ytmusic_search/ytmusic'
 alias pact='source .venv/bin/activate'
