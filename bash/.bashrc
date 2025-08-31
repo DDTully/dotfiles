@@ -4,6 +4,7 @@ eval "$(starship init bash)"
 
 export EDITOR=$(which nvim)
 export PATH=/home/tully/.opencode/bin:$PATH
+export PATH=/home/tully/.config/general:$PATH
 
 # Generated for envman. Do not edit.
 [ -s "$HOME/.config/envman/load.sh" ] && source "$HOME/.config/envman/load.sh"
