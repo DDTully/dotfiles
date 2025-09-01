@@ -6,6 +6,14 @@ window-padding-x = 14
 window-padding-y = 14
 window-decoration = none
 
+keybind = ctrl+shift+left=unbind
+keybind = ctrl+shift+right=unbind
+
+keybind=ctrl+shift+plus=increase_font_size:1
+keybind=ctrl+shift+kp_add=increase_font_size:1
+keybind=ctrl+shift+minus=decrease_font_size:1
+keybind=ctrl+shift+kp_subtract=decrease_font_size:1
+
 keybind = f11=toggle_fullscreen
 keybind = performable:ctrl+v=paste_from_clipboard
 keybind = performable:ctrl+c=copy_to_clipboard
