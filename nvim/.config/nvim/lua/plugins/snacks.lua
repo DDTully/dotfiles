@@ -1,6 +1,15 @@
 return {
   "snacks.nvim",
   opts = {
+    picker = {
+      enabled = true,
+      hidden = true,
+      ignored = true,
+      sources = {
+        files = { hidden = true, ignored = true },
+        explorer = { hidden = true, ignored = true },
+      },
+    },
     dashboard = {
       preset = {
         header = [[
