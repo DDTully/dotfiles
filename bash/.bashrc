@@ -18,6 +18,8 @@ mkcd() {
 }
 
 # Docker stuff
+alias dccu="docker compose up -d "
+alias dps="docker ps"
 dcrm() {
   if [ $# -eq 0 ]; then
     echo "Usage: dcrm <container_name_or_id> [more_containers...]"
