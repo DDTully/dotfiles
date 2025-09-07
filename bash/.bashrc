@@ -196,7 +196,39 @@ __complete_dcsh() {
 complete -F __complete_dcrm dcrm
 complete -F __complete_dcsh dcsh
 
+csvup() {
+  local api_base="http://127.0.0.1:8000"
+  if [[ $# -ne 1 ]]; then
+    echo "Usage: csvup <file.csv>" >&2
+    return 2
+  fi
+  local file="$1"
+  if [[ ! -f "$file" ]]; then
+    echo "csvup: file not found: $file" >&2
+    return 1
+  fi
+  curl -fsS -H "Accept: application/json" -X POST \
+    -F "file=@${file}" "${api_base}/data" |
+    (command -v jq >/dev/null 2>&1 && jq . || cat)
+}
+csvupraw() {
+  local api_base="http://127.0.0.1:8000"
+  if [[ $# -ne 1 ]]; then
+    echo "Usage: csvupraw <file.csv>" >&2
+    return 2
+  fi
+  local file="$1"
+  if [[ ! -f "$file" ]]; then
+    echo "csvupraw: file not found: $file" >&2
+    return 1
+  fi
+  curl -fsS -H "Content-Type: text/csv" -H "Accept: application/json" \
+    --data-binary @"${file}" "${api_base}/data/raw" |
+    (command -v jq >/dev/null 2>&1 && jq . || cat)
+}
+
 # Aliases
 alias yt='~/Sync/randomcode/ytmusic_search/ytmusic'
 alias pact='source .venv/bin/activate'
 alias dact='deactivate'
+alias reload='exec $SHELL -l'
