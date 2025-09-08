@@ -233,13 +233,13 @@ csvupraw() {
 csvupjson() {
   local api_base="http://127.0.0.1:8000"
   if [[ $# -lt 1 || $# -gt 2 ]]; then
-    echo "Usage: csvupraw <file.csv> [table]" >&2
+    echo "Usage: csvupjson <file.csv> [table]" >&2
     return 2
   fi
   local file="$1"
   local table="${2:-default}"
   if [[ ! -f "$file" ]]; then
-    echo "csvupraw: file not found: $file" >&2
+    echo "csvupjson: file not found: $file" >&2
     return 1
   fi
   curl -fsS -H "Content-Type: application/json" -H "Accept: application/json" \
@@ -251,4 +251,5 @@ csvupjson() {
 alias yt='~/Sync/randomcode/ytmusic_search/ytmusic'
 alias pact='source .venv/bin/activate'
 alias dact='deactivate'
+alias ga='git add .'
 alias reload='exec $SHELL -l'
