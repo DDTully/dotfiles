@@ -198,32 +198,52 @@ complete -F __complete_dcsh dcsh
 
 csvup() {
   local api_base="http://127.0.0.1:8000"
-  if [[ $# -ne 1 ]]; then
-    echo "Usage: csvup <file.csv>" >&2
+  if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "Usage: csvup <file.csv> [table]" >&2
     return 2
   fi
   local file="$1"
+  local table="${2:-default}"
   if [[ ! -f "$file" ]]; then
     echo "csvup: file not found: $file" >&2
     return 1
   fi
   curl -fsS -H "Accept: application/json" -X POST \
-    -F "file=@${file}" "${api_base}/data" |
+    -F "file=@${file}" "${api_base}/tables/${table}/data" |
     (command -v jq >/dev/null 2>&1 && jq . || cat)
 }
+
 csvupraw() {
   local api_base="http://127.0.0.1:8000"
-  if [[ $# -ne 1 ]]; then
-    echo "Usage: csvupraw <file.csv>" >&2
+  if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "Usage: csvupraw <file.csv> [table]" >&2
     return 2
   fi
   local file="$1"
+  local table="${2:-default}"
   if [[ ! -f "$file" ]]; then
     echo "csvupraw: file not found: $file" >&2
     return 1
   fi
   curl -fsS -H "Content-Type: text/csv" -H "Accept: application/json" \
-    --data-binary @"${file}" "${api_base}/data/raw" |
+    --data-binary @"${file}" "${api_base}/tables/${table}/data/raw" |
+    (command -v jq >/dev/null 2>&1 && jq . || cat)
+}
+
+csvupjson() {
+  local api_base="http://127.0.0.1:8000"
+  if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "Usage: csvupraw <file.csv> [table]" >&2
+    return 2
+  fi
+  local file="$1"
+  local table="${2:-default}"
+  if [[ ! -f "$file" ]]; then
+    echo "csvupraw: file not found: $file" >&2
+    return 1
+  fi
+  curl -fsS -H "Content-Type: application/json" -H "Accept: application/json" \
+    --data-binary @"${file}" "${api_base}/tables/${table}/data/json" |
     (command -v jq >/dev/null 2>&1 && jq . || cat)
 }
 
