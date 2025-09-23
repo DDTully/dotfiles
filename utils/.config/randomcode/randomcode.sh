@@ -1,14 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Check for directory argument
+if [ $# -eq 0 ]; then
+  echo "Usage: $0 <directory_name>"
+  exit 1
+fi
+
+DIR="$1"
+WORKDIR="$HOME/Sync/randomcode/$DIR"
+
+# Create directory if it doesn't exist
+if [ ! -d "$WORKDIR" ]; then
+  mkdir -p "$WORKDIR"
+fi
+
 # Name of the tmux session
-SESSION="randomcode"
-WORKDIR="$HOME/Sync/randomcode/"
+SESSION="Randomcode - $DIR"
 
 # Commands
 EDITOR_CMD="nvim"
-BACKEND_CMD=""
-FRONTEND_CMD=""
+BACKEND_CMD="clear"
+FRONTEND_CMD="clear"
 
 # If session exists, just attach
 if tmux has-session -t "$SESSION" 2>/dev/null; then
@@ -28,12 +41,16 @@ tmux split-window -v -t "$SESSION:2" -c "$WORKDIR"
 tmux send-keys -t "$SESSION:2.1" "clear && $BACKEND_CMD" C-m
 tmux send-keys -t "$SESSION:2.2" "clear && $FRONTEND_CMD" C-m
 
-# Window 3: working session
-tmux new-window -t "$SESSION:3" -n 'working' -c "$WORKDIR"
+# Window 3: opencode/codex
+tmux new-window -t "$SESSION:3" -n 'agent' -c "$WORKDIR"
 tmux send-keys -t "$SESSION:3" "clear" C-m
 
+# Window 3: working session
+tmux new-window -t "$SESSION:4" -n 'working' -c "$WORKDIR"
+tmux send-keys -t "$SESSION:4" "clear" C-m
+
 # Make 'working' the active window on attach
-tmux select-window -t "$SESSION:3"
+tmux select-window -t "$SESSION:4"
 
 # Attach to the session
 tmux attach -t "$SESSION"

@@ -6,6 +6,7 @@ export EDITOR=$(which nvim)
 export PATH=/home/tully/.opencode/bin:$PATH
 export PATH=/home/tully/.config/general:$PATH
 export PATH=/home/tully/.config/teller:$PATH
+export PATH=/home/tully/.config/randomcode:$PATH
 
 # Generated for envman. Do not edit.
 [ -s "$HOME/.config/envman/load.sh" ] && source "$HOME/.config/envman/load.sh"
