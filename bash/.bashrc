@@ -255,3 +255,4 @@ alias pact='source .venv/bin/activate'
 alias dact='deactivate'
 alias ga='git add .'
 alias reload='exec $SHELL -l'
+. "$HOME/.cargo/env"
