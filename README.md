@@ -17,7 +17,6 @@ Below are the packages (directories) included in this repository:
 - omarchy
 - starship
 - tmux
-- utils
 - yazi
 
 Each directory contains configuration files or scripts for a specific tool.
