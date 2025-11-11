@@ -7,7 +7,9 @@ Personal dotfiles and configuration for setting up a development environment.
 This repository is intended for Linux systems and is organized to be managed with GNU Stow. Each top-level directory is treated as a "package" that stow will symlink into your home directory.
 
 ## What’s included
+
 Below are the packages (directories) included in this repository:
+
 - alacritty
 - bash
 - bat
@@ -22,12 +24,14 @@ Below are the packages (directories) included in this repository:
 Each directory contains configuration files or scripts for a specific tool.
 
 ## Requirements
+
 - Supported Operating Systems:
   - Debian / Ubuntu
   - Arch Linux
 - GNU Stow
 
 Install GNU Stow:
+
 - Debian / Ubuntu:
   ```bash
   sudo apt update && sudo apt install -y stow
@@ -38,6 +42,7 @@ Install GNU Stow:
   ```
 
 ## Installation (using GNU Stow)
+
 1. Clone this repository:
    ```bash
    git clone https://github.com/DDTully/dotfiles.git
@@ -64,14 +69,16 @@ Install GNU Stow:
 Note: You can omit `-t $HOME` if you run `stow` from the repo root and want the default target to be your home directory.
 
 ## Contributing
+
 PRs and improvements are welcome. Open an issue to discuss larger changes.
 
 ## License
+
 This repository is licensed under the MIT License. See the LICENSE file.
 
 ## Contact
-DDTully — https://github.com/DDTully
 
+DDTully — https://github.com/DDTully
 
 # LICENSE
 
@@ -96,3 +103,4 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
