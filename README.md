@@ -10,7 +10,6 @@ This repository is intended for Linux systems and is organized to be managed wit
 
 Below are the packages (directories) included in this repository:
 
-- alacritty
 - bash
 - bat
 - ghostty
@@ -103,4 +102,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
