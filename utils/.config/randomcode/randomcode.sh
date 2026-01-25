@@ -33,21 +33,21 @@ tmux new-session -d -s "$SESSION" -c "$WORKDIR"
 
 # Window 1: main editor
 tmux rename-window -t "$SESSION:1" 'editor'
-tmux send-keys -t "$SESSION:1" "$EDITOR_CMD" C-m
+tmux send-keys -t "$SESSION:1" "pact; $EDITOR_CMD; clear" C-m
 
 # Window 2: servers (split first, then send commands)
 tmux new-window -t "$SESSION:2" -n 'servers' -c "$WORKDIR"
 tmux split-window -v -t "$SESSION:2" -c "$WORKDIR"
-tmux send-keys -t "$SESSION:2.1" "clear && $BACKEND_CMD" C-m
-tmux send-keys -t "$SESSION:2.2" "clear && $FRONTEND_CMD" C-m
+tmux send-keys -t "$SESSION:2.1" "pact; clear; $BACKEND_CMD" C-m
+tmux send-keys -t "$SESSION:2.2" "pact; clear; $FRONTEND_CMD" C-m
 
 # Window 3: opencode/codex
 tmux new-window -t "$SESSION:3" -n 'agent' -c "$WORKDIR"
-tmux send-keys -t "$SESSION:3" "clear" C-m
+tmux send-keys -t "$SESSION:3" "pact; clear" C-m
 
 # Window 3: working session
 tmux new-window -t "$SESSION:4" -n 'working' -c "$WORKDIR"
-tmux send-keys -t "$SESSION:4" "clear" C-m
+tmux send-keys -t "$SESSION:4" "pact; clear" C-m
 
 # Make 'working' the active window on attach
 tmux select-window -t "$SESSION:4"
