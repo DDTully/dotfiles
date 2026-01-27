@@ -1,12 +1,12 @@
 theme = catppuccinmocha
-font-family = "Droid Sans Mono Dotted for Powerline"
-font-size = 14
+font-family = "Droid Sans Mono for Powerline Nerd Font Complete"
+font-size = 12
 
 confirm-close-surface = false
 
 window-padding-x = 14
 window-padding-y = 14
-window-decoration = none
+# window-decoration = none
 
 keybind = ctrl+shift+left=unbind
 keybind = ctrl+shift+right=unbind
