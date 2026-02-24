@@ -1,8 +1,8 @@
 eval "$(starship init bash)"
 
-export PATH=/home/tully/.opencode/bin:$PATH
-export PATH=/home/tully/.config/general:$PATH
-export PATH=/home/tully/.config/randomcode:$PATH
+export PATH=$HOME/.opencode/bin:$PATH
+export PATH=$HOME/.config/general:$PATH
+export PATH=$HOME/.config/randomcode:$PATH
 export PATH=/usr/lib:$PATH
 
 # Generated for envman. Do not edit.
@@ -34,6 +34,5 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
 
 # Added by LM Studio CLI (lms)
-export PATH="$PATH:/home/tully/.lmstudio/bin"
+export PATH="$PATH:$HOME/.lmstudio/bin"
 # End of LM Studio CLI section
-
