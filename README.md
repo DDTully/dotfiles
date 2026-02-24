@@ -15,7 +15,6 @@ Below are the packages (directories) included in this repository:
 - ghostty
 - hypr
 - nvim
-- omarchy
 - starship
 - tmux
 - yazi
