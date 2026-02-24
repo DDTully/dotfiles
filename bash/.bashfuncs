@@ -187,6 +187,24 @@ _randomcode_completion() {
     fi
 }
 
+frg() {
+  local root
+  root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  cd "$root" || return
+
+  fzf --ansi --disabled --query "" \
+      --bind "change:reload:
+        rg --line-number --no-heading --color=always \
+           --smart-case \
+           --hidden \
+           --glob '!.git/*' \
+           {q} || true" \
+      --delimiter : \
+      --preview 'bat --style=numbers --color=always --highlight-line {2} {1}' \
+      --preview-window=right:60%:wrap \
+      --bind "enter:execute($EDITOR +{2} {1})"
+}
+
 complete -F _randomcode_completion randomcode
 # Wire completions
 complete -F __complete_dcrm dcrm
