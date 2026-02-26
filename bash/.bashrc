@@ -11,7 +11,7 @@ export PATH=/usr/lib:$PATH
 export EDITOR="/opt/nvim-linux-x86_64/bin/nvim"
 
 # Utility functions
-source ~/.bashfuncs
+source ~/bashfuncs.sh
 
 # Aliases
 alias ls="eza --long --git -a"

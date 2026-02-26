@@ -200,13 +200,12 @@ frg() {
            --glob '!.git/*' \
            {q} || true" \
       --delimiter : \
-      --preview 'bat --style=numbers --color=always --highlight-line {2} {1}' \
+      --preview 'bat --style=numbers --color=always --highlight-line {2} {1} 2>/dev/null' \
       --preview-window=right:60%:wrap \
       --bind "enter:execute($EDITOR +{2} {1})"
 }
 
 complete -F _randomcode_completion randomcode
-# Wire completions
 complete -F __complete_dcrm dcrm
 complete -F __complete_dcsh dcsh
 
