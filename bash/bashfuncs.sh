@@ -171,20 +171,20 @@ __complete_dcsh() {
   COMPREPLY=($(compgen -W "$opts" -- "$cur"))
 }
 _randomcode_completion() {
-    local cur search_dir
-    COMPREPLY=()
-    cur="${COMP_WORDS[COMP_CWORD]}"
-    search_dir="$HOME/Sync/randomcode"
+  local cur search_dir
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  search_dir="$HOME/Sync/randomcode"
 
-    if [[ -d "$search_dir" ]]; then
-        # Run compgen inside the target directory to get relative folder names
-        # Use a subshell so we don't actually change the user's directory
-        local matches
-        matches=$(cd "$search_dir" && compgen -d -- "$cur")
-        
-        # Populate COMPREPLY with the results
-        COMPREPLY=( $matches )
-    fi
+  if [[ -d "$search_dir" ]]; then
+    # Run compgen inside the target directory to get relative folder names
+    # Use a subshell so we don't actually change the user's directory
+    local matches
+    matches=$(cd "$search_dir" && compgen -d -- "$cur")
+
+    # Populate COMPREPLY with the results
+    COMPREPLY=($matches)
+  fi
 }
 
 frg() {
@@ -193,19 +193,18 @@ frg() {
   cd "$root" || return
 
   fzf --ansi --disabled --query "" \
-      --bind "change:reload:
+    --bind "change:reload:
         rg --line-number --no-heading --color=always \
            --smart-case \
            --hidden \
            --glob '!.git/*' \
            {q} || true" \
-      --delimiter : \
-      --preview 'bat --style=numbers --color=always --highlight-line {2} {1} 2>/dev/null' \
-      --preview-window=right:60%:wrap \
-      --bind "enter:execute($EDITOR +{2} {1})"
+    --delimiter : \
+    --preview 'bat --style=numbers --color=always --highlight-line {2} {1} 2>/dev/null' \
+    --preview-window=right:60%:wrap:+{2}/2 \
+    --bind "enter:execute($EDITOR +{2} {1})"
 }
 
 complete -F _randomcode_completion randomcode
 complete -F __complete_dcrm dcrm
 complete -F __complete_dcsh dcsh
-
