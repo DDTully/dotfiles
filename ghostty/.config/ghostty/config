@@ -1,5 +1,5 @@
 theme = catppuccinmocha
-font-family = "Droid Sans Mono for Powerline Nerd Font Complete"
+# font-family = "Droid Sans Mono for Powerline Nerd Font Complete"
 font-size = 12
 
 confirm-close-surface = false

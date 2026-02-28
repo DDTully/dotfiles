@@ -14,8 +14,8 @@ export EDITOR="/opt/nvim-linux-x86_64/bin/nvim"
 source ~/bashfuncs.sh
 
 # Aliases
-alias ls="eza --long --git -a"
-alias lt="eza --long --git --tree --level 99 -a"
+alias ls="eza --long --git"
+alias lt="eza --long --git --tree --level 99"
 alias bunx="bun x"
 alias dccu="docker compose up -d "
 alias dps="docker ps"

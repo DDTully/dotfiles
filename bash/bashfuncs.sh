@@ -26,6 +26,10 @@ dcsh() {
       shift
       ;;
     -u | --user)
+      if [[ $# -lt 2 || "$2" == "--" || "$2" == -* ]]; then
+        echo "dcsh: --user requires a value" >&2
+        return 2
+      fi
       user="$2"
       shift 2
       ;;
@@ -52,6 +56,10 @@ EOF
       return 2
       ;;
     *)
+      if [[ -n "$container" ]]; then
+        echo "dcsh: unexpected argument: $1" >&2
+        return 2
+      fi
       container="$1"
       shift
       ;;
@@ -179,30 +187,60 @@ _randomcode_completion() {
   if [[ -d "$search_dir" ]]; then
     # Run compgen inside the target directory to get relative folder names
     # Use a subshell so we don't actually change the user's directory
-    local matches
-    matches=$(cd "$search_dir" && compgen -d -- "$cur")
-
-    # Populate COMPREPLY with the results
-    COMPREPLY=($matches)
+    mapfile -t COMPREPLY < <(cd "$search_dir" && compgen -d -- "$cur")
   fi
 }
 
 frg() {
   local root
   root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-  cd "$root" || return
 
-  fzf --ansi --disabled --query "" \
-    --bind "change:reload:
-        rg --line-number --no-heading --color=always \
-           --smart-case \
-           --hidden \
-           --glob '!.git/*' \
-           {q} || true" \
-    --delimiter : \
-    --preview 'bat --style=numbers --color=always --highlight-line {2} {1} 2>/dev/null' \
-    --preview-window=right:60%:wrap:+{2}/2 \
-    --bind "enter:execute($EDITOR +{2} {1})"
+  (
+    cd "$root" || exit
+
+    fzf --ansi --disabled --no-mouse --query "" \
+      --bind "change:reload:
+          rg --line-number --no-heading --color=always \
+             --smart-case \
+             --hidden \
+             --glob '!.git/*' \
+             {q} || true" \
+      --delimiter : \
+      --preview 'bat --style=numbers --color=always --highlight-line {2} {1} 2>/dev/null' \
+      --preview-window=right:60%:wrap:+{2}/2 \
+      --bind "enter:execute($EDITOR +{2} {1})"
+  )
+}
+cheat() {
+  if [[ -z "$1" ]]; then
+    echo "Usage: cheat <command>"
+    return 1
+  fi
+
+  local tmp selection line status
+  tmp="$(mktemp)" || return 1
+
+  if ! curl -fsSL "https://cheat.sh/$1?T" -o "$tmp"; then
+    echo "Error: Failed to fetch cheat.sh/$1"
+    rm -f "$tmp"
+    return 1
+  fi
+
+  selection=$(
+    awk '{printf "%d:%s\n", NR, $0}' "$tmp" |
+      fzf --ansi --no-mouse --delimiter=':' \
+        --preview "bat --style=numbers --color=always --highlight-line {1} --paging=never $tmp" \
+        --preview-window='right:60%:+{1}/2'
+  ) || {
+    rm -f "$tmp"
+    return 0
+  }
+
+  line="${selection%%:*}"
+  "$EDITOR" +"$line" "$tmp"
+  status=$?
+  rm -f "$tmp"
+  return $status
 }
 
 complete -F _randomcode_completion randomcode
