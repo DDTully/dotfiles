@@ -1,0 +1,199 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+FZF_TUNES_SOURCE="${SCRIPT_DIR}/fzftunes"
+INSTALL_BIN_DIR="${HOME}/.local/bin"
+INSTALL_BIN_PATH="${INSTALL_BIN_DIR}/fzftunes"
+
+MPD_CONFIG_DIR="${HOME}/.config/mpd"
+MPD_CONFIG_FILE="${MPD_CONFIG_DIR}/mpd.conf"
+MPD_DATA_DIR="${HOME}/.local/share/mpd"
+MPD_MUSIC_DIR="${MPD_DATA_DIR}/music"
+MPD_PLAYLIST_DIR="${MPD_DATA_DIR}/playlists"
+
+FORCE_CONFIG=0
+
+usage() {
+  cat <<'EOF'
+Usage: install-fzftunes [--force-config]
+
+Installs dependencies for fzftunes on Arch or Ubuntu, writes a local MPD
+configuration, enables MPD as a user service, and installs fzftunes into
+~/.local/bin.
+
+Options:
+  --force-config  Overwrite ~/.config/mpd/mpd.conf if it already exists
+  -h, --help      Show this help message
+EOF
+}
+
+need_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    printf 'Missing required command: %s\n' "$1" >&2
+    exit 1
+  fi
+}
+
+has_sudo() {
+  command -v sudo >/dev/null 2>&1
+}
+
+run_root() {
+  if has_sudo; then
+    sudo "$@"
+  else
+    "$@"
+  fi
+}
+
+detect_distro() {
+  if [[ -r /etc/os-release ]]; then
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    printf '%s\n' "${ID:-unknown}"
+    return
+  fi
+  printf 'unknown\n'
+}
+
+install_arch_packages() {
+  printf 'Installing packages with pacman...\n'
+  run_root pacman -Sy --needed --noconfirm mpd mpc fzf ffmpeg yt-dlp
+}
+
+install_ubuntu_packages() {
+  printf 'Installing packages with apt...\n'
+  run_root apt-get update
+  run_root apt-get install -y mpd mpc fzf ffmpeg yt-dlp
+}
+
+ensure_uv() {
+  if command -v uv >/dev/null 2>&1; then
+    return
+  fi
+
+  printf 'uv not found; installing uv...\n'
+  need_cmd curl
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+
+  export PATH="${HOME}/.local/bin:${PATH}"
+
+  if ! command -v uv >/dev/null 2>&1; then
+    printf 'uv installation failed; expected binary at ~/.local/bin/uv\n' >&2
+    exit 1
+  fi
+}
+
+install_yt_dlp_fallback() {
+  if command -v yt-dlp >/dev/null 2>&1; then
+    return
+  fi
+
+  printf 'yt-dlp package not available; installing with uv tool...\n'
+  ensure_uv
+  uv tool install --upgrade yt-dlp
+
+  if ! command -v yt-dlp >/dev/null 2>&1; then
+    export PATH="${HOME}/.local/bin:${PATH}"
+  fi
+
+  if ! command -v yt-dlp >/dev/null 2>&1; then
+    printf 'yt-dlp install succeeded but is not in PATH.\n' >&2
+    printf 'Add ~/.local/bin to PATH and retry.\n' >&2
+    exit 1
+  fi
+}
+
+write_mpd_config() {
+  mkdir -p "${MPD_CONFIG_DIR}" "${MPD_MUSIC_DIR}" "${MPD_PLAYLIST_DIR}" "${MPD_DATA_DIR}"
+  touch "${MPD_DATA_DIR}/database" "${MPD_DATA_DIR}/state" "${MPD_DATA_DIR}/sticker.sql"
+
+  if [[ -f "${MPD_CONFIG_FILE}" && "${FORCE_CONFIG}" -ne 1 ]]; then
+    printf 'Keeping existing MPD config: %s\n' "${MPD_CONFIG_FILE}"
+    return
+  fi
+
+  cat > "${MPD_CONFIG_FILE}" <<EOF
+music_directory         "${MPD_MUSIC_DIR}"
+playlist_directory      "${MPD_PLAYLIST_DIR}"
+db_file                 "${MPD_DATA_DIR}/database"
+state_file              "${MPD_DATA_DIR}/state"
+sticker_file            "${MPD_DATA_DIR}/sticker.sql"
+bind_to_address         "127.0.0.1"
+port                    "6600"
+auto_update             "yes"
+restore_paused          "yes"
+
+audio_output {
+  type                  "pulse"
+  name                  "Local Audio"
+}
+EOF
+
+  printf 'Wrote MPD config: %s\n' "${MPD_CONFIG_FILE}"
+}
+
+start_mpd_service() {
+  if command -v systemctl >/dev/null 2>&1 && systemctl --user status >/dev/null 2>&1; then
+    systemctl --user enable --now mpd.service
+    printf 'MPD user service enabled and started.\n'
+    return
+  fi
+
+  printf 'systemd user service unavailable; starting mpd directly...\n'
+  mpd "${MPD_CONFIG_FILE}"
+}
+
+install_fzftunes_binary() {
+  if [[ ! -x "${FZF_TUNES_SOURCE}" ]]; then
+    printf 'Missing fzftunes script: %s\n' "${FZF_TUNES_SOURCE}" >&2
+    exit 1
+  fi
+
+  mkdir -p "${INSTALL_BIN_DIR}"
+  install -m 755 "${FZF_TUNES_SOURCE}" "${INSTALL_BIN_PATH}"
+  printf 'Installed fzftunes to %s\n' "${INSTALL_BIN_PATH}"
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    --force-config)
+      FORCE_CONFIG=1
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unknown option: %s\n\n' "$arg" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+distro="$(detect_distro)"
+
+case "$distro" in
+  arch|cachyos|endeavouros|manjaro)
+    install_arch_packages
+    ;;
+  ubuntu|debian)
+    install_ubuntu_packages
+    ;;
+  *)
+    printf 'Unsupported distro: %s\n' "$distro" >&2
+    printf 'This installer currently supports Arch and Ubuntu/Debian.\n' >&2
+    exit 1
+    ;;
+esac
+
+install_yt_dlp_fallback
+write_mpd_config
+install_fzftunes_binary
+start_mpd_service
+
+printf '\nDone. Run `fzftunes` to search and play music.\n'
+printf 'If needed, add ~/.local/bin to PATH and relogin.\n'

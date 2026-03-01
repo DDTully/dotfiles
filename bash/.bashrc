@@ -3,6 +3,7 @@ eval "$(starship init bash)"
 export PATH=$HOME/.opencode/bin:$PATH
 export PATH=$HOME/.config/general:$PATH
 export PATH=$HOME/.config/randomcode:$PATH
+export PATH=$HOME/.local/bin:$PATH
 export PATH=/usr/lib:$PATH
 
 # Generated for envman. Do not edit.

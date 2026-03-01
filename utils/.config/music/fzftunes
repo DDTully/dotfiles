@@ -1,0 +1,450 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+RESULTS_COUNT="${RESULTS_COUNT:-25}"
+FORMAT_STRING="${FORMAT_STRING:-bestaudio[ext=m4a]/bestaudio/best}"
+DEBUG="${DEBUG:-0}"
+TAB=$'\t'
+STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/fzftunes"
+CACHE_FILE="${STATE_DIR}/stream-labels.tsv"
+
+need_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    printf 'Missing required command: %s\n' "$1" >&2
+    exit 1
+  fi
+}
+
+log_debug() {
+  if [[ "$DEBUG" == "1" ]]; then
+    printf '[debug] %s\n' "$1" >&2
+  fi
+}
+
+need_mpd() {
+  need_cmd mpc
+  if ! mpc status >/dev/null 2>&1; then
+    printf 'Cannot talk to MPD. Start mpd and try again.\n' >&2
+    exit 1
+  fi
+}
+
+show_status() {
+  mpc status
+}
+
+sanitize_label() {
+  local label="$1"
+  label="${label//$'\t'/ }"
+  label="${label//$'\n'/ }"
+  printf '%s' "$label"
+}
+
+remember_stream_label() {
+  local uri="$1"
+  local label
+  label="$(sanitize_label "$2")"
+
+  mkdir -p "$STATE_DIR"
+  printf '%s%s%s\n' "$uri" "$TAB" "$label" >> "$CACHE_FILE"
+}
+
+get_cached_label() {
+  local uri="$1"
+  local line key val
+
+  [[ -f "$CACHE_FILE" ]] || return 1
+
+  while IFS="$TAB" read -r key val; do
+    if [[ "$key" == "$uri" ]]; then
+      line="$val"
+    fi
+  done < "$CACHE_FILE"
+
+  [[ -n "${line:-}" ]] || return 1
+  printf '%s' "$line"
+}
+
+queue_display_rows() {
+  local row pos uri label
+
+  mapfile -t queue_raw_rows < <(mpc playlist -f "%position%${TAB}%file%" 2>/dev/null || true)
+
+  for row in "${queue_raw_rows[@]}"; do
+    pos="${row%%${TAB}*}"
+    uri="${row#*${TAB}}"
+
+    if label="$(get_cached_label "$uri")"; then
+      printf '%s%s%s%s%s\n' "$pos" "$TAB" "$label" "$TAB" "$uri"
+    else
+      printf '%s%s%s%s%s\n' "$pos" "$TAB" "$uri" "$TAB" "$uri"
+    fi
+  done
+}
+
+friendly_uri_fallback() {
+  local uri="$1"
+
+  case "$uri" in
+    *googlevideo.com/*)
+      printf 'YouTube audio stream'
+      ;;
+    *youtube.com/*)
+      printf 'YouTube item'
+      ;;
+    *)
+      printf '%s' "$uri"
+      ;;
+  esac
+}
+
+build_label_from_uri() {
+  local uri="$1"
+  local title uploader duration label
+
+  if command -v yt-dlp >/dev/null 2>&1; then
+    mapfile -t meta_rows < <(yt-dlp --no-warnings --print "%\(title\)s${TAB}%\(uploader\)s${TAB}%\(duration_string\)s" "$uri" 2>/dev/null || true)
+
+    if [[ "${#meta_rows[@]}" -gt 0 ]]; then
+      IFS="$TAB" read -r title uploader duration <<< "${meta_rows[0]}"
+      if [[ -n "${title:-}" ]]; then
+        label="$title"
+        [[ -n "${uploader:-}" ]] && label+=" - ${uploader}"
+        [[ -n "${duration:-}" ]] && label+=" (${duration})"
+        printf '%s' "$(sanitize_label "$label")"
+        return 0
+      fi
+    fi
+  fi
+
+  printf '%s' "$(friendly_uri_fallback "$uri")"
+}
+
+relabel_queue() {
+  local row uri label relabeled=0 skipped=0
+
+  mapfile -t queue_rows < <(mpc playlist -f "%file%" 2>/dev/null || true)
+
+  if [[ "${#queue_rows[@]}" -eq 0 ]]; then
+    printf 'Queue is empty.\n'
+    return 0
+  fi
+
+  for row in "${queue_rows[@]}"; do
+    uri="$row"
+
+    if get_cached_label "$uri" >/dev/null 2>&1; then
+      skipped=$((skipped + 1))
+      continue
+    fi
+
+    label="$(build_label_from_uri "$uri")"
+    remember_stream_label "$uri" "$label"
+    relabeled=$((relabeled + 1))
+  done
+
+  printf 'Relabeled %d queue item(s); skipped %d already cached.\n' "$relabeled" "$skipped"
+}
+
+show_queue() {
+  mapfile -t display_rows < <(queue_display_rows)
+
+  if [[ "${#display_rows[@]}" -eq 0 ]]; then
+    printf 'Queue is empty.\n'
+    return 0
+  fi
+
+  printf '%s\n' "${display_rows[@]}" | while IFS="$TAB" read -r pos label _; do
+    printf '%s) %s\n' "$pos" "$label"
+  done
+}
+
+queue_menu() {
+  need_cmd fzf
+
+  mapfile -t queue_rows < <(queue_display_rows)
+
+  if [[ "${#queue_rows[@]}" -eq 0 ]]; then
+    printf 'Queue is empty.\n' >&2
+    return 0
+  fi
+
+  picked="$({
+    printf '%s\n' "${queue_rows[@]}"
+  } | fzf \
+      --height=85% \
+      --reverse \
+      --delimiter="$TAB" \
+      --with-nth=2,3 \
+      --prompt='Queue > ' \
+      --header='Enter: play item | Alt-d: delete item | Esc: back' \
+      --expect=enter,alt-d)"
+
+  [[ -z "$picked" ]] && return 0
+
+  key="${picked%%$'\n'*}"
+  line="${picked#*$'\n'}"
+
+  [[ "$line" == "$picked" ]] && return 0
+
+  pos="${line%%${TAB}*}"
+
+  uri="${line#*${TAB}}"
+  uri="${uri#*${TAB}}"
+
+  if [[ "$key" == "alt-d" ]]; then
+    mpc del "$pos" >/dev/null
+    printf 'Removed queue item %s\n' "$pos"
+  else
+    mpc play "$pos" >/dev/null
+    printf 'Playing queue item %s\n' "$pos"
+  fi
+}
+
+controls_menu() {
+  need_cmd fzf
+
+  while true; do
+    choice="$(printf '%s\n' \
+      'Toggle pause/resume' \
+      'Next track' \
+      'Previous track' \
+      'Stop playback' \
+      'Queue manager' \
+      'Clear queue' \
+      'Show status' \
+      'Exit' | fzf --prompt='Controls > ' --height=60% --reverse)"
+
+    [[ -z "$choice" ]] && return 0
+
+    case "$choice" in
+      'Toggle pause/resume')
+        mpc toggle >/dev/null
+        ;;
+      'Next track')
+        mpc next >/dev/null
+        ;;
+      'Previous track')
+        mpc prev >/dev/null
+        ;;
+      'Stop playback')
+        mpc stop >/dev/null
+        ;;
+      'Queue manager')
+        queue_menu
+        ;;
+      'Clear queue')
+        mpc clear >/dev/null
+        ;;
+      'Show status')
+        show_status
+        ;;
+      'Exit')
+        return 0
+        ;;
+    esac
+  done
+}
+
+print_help() {
+  cat <<'EOF'
+Usage:
+  fzftunes [initial search]
+  fzftunes controls
+  fzftunes pause|resume|toggle|stop|next|prev|status
+  fzftunes queue|queue-menu|relabel-queue|clear
+
+Search YouTube with yt-dlp, pick a result in fzf, and play it in MPD.
+
+Keys in fzf:
+  Enter   Play selected track immediately
+  Alt-q   Queue selected track without clearing playlist
+  Esc     Exit
+
+Environment variables:
+  RESULTS_COUNT  Number of search results to fetch (default: 25)
+  FORMAT_STRING  yt-dlp format selector (default: bestaudio[ext=m4a]/bestaudio/best)
+  DEBUG          Set to 1 for debug logs
+EOF
+}
+
+command="${1:-}"
+
+case "$command" in
+  -h|--help)
+    print_help
+    exit 0
+    ;;
+  pause)
+    need_mpd
+    mpc pause >/dev/null
+    show_status
+    exit 0
+    ;;
+  resume)
+    need_mpd
+    mpc play >/dev/null
+    show_status
+    exit 0
+    ;;
+  toggle)
+    need_mpd
+    mpc toggle >/dev/null
+    show_status
+    exit 0
+    ;;
+  stop)
+    need_mpd
+    mpc stop >/dev/null
+    show_status
+    exit 0
+    ;;
+  next)
+    need_mpd
+    mpc next >/dev/null
+    show_status
+    exit 0
+    ;;
+  prev|previous|back)
+    need_mpd
+    mpc prev >/dev/null
+    show_status
+    exit 0
+    ;;
+  status)
+    need_mpd
+    show_status
+    exit 0
+    ;;
+  queue)
+    need_mpd
+    show_queue
+    exit 0
+    ;;
+  queue-menu)
+    need_mpd
+    queue_menu
+    exit 0
+    ;;
+  relabel-queue)
+    need_mpd
+    relabel_queue
+    exit 0
+    ;;
+  clear)
+    need_mpd
+    mpc clear >/dev/null
+    printf 'Queue cleared.\n'
+    exit 0
+    ;;
+  controls)
+    need_mpd
+    controls_menu
+    exit 0
+    ;;
+esac
+
+for cmd in yt-dlp fzf mpc; do
+  need_cmd "$cmd"
+done
+
+need_mpd
+
+search_term="${*:-}"
+
+while true; do
+  if [[ -z "$search_term" ]]; then
+    read -r -p "Search music: " search_term
+  fi
+
+  [[ -z "$search_term" ]] && exit 0
+
+  mapfile -t rows < <(
+    yt-dlp \
+      --flat-playlist \
+      --no-warnings \
+      --print "%(title)s${TAB}%(uploader)s${TAB}%(duration_string)s${TAB}%(id)s" \
+      "ytsearch${RESULTS_COUNT}:${search_term}" 2>/dev/null
+  )
+
+  if [[ "${#rows[@]}" -eq 0 ]]; then
+    printf 'No results for "%s"\n' "$search_term" >&2
+    search_term=""
+    continue
+  fi
+
+  picked="$({
+    printf '%s\n' "${rows[@]}"
+  } | fzf \
+      --height=85% \
+      --reverse \
+      --delimiter="$TAB" \
+      --with-nth=1,2,3 \
+      --prompt='Pick track > ' \
+      --header='Enter: play now | Alt-q: queue only | Esc: cancel' \
+      --expect=enter,alt-q)"
+
+  [[ -z "$picked" ]] && exit 0
+
+  key="${picked%%$'\n'*}"
+  line="${picked#*$'\n'}"
+
+  if [[ "$line" == "$picked" ]]; then
+    search_term=""
+    continue
+  fi
+
+  IFS="$TAB" read -r track_title track_uploader track_duration video_id <<< "$line"
+
+  display_label="$track_title"
+  if [[ -n "${track_uploader:-}" ]]; then
+    display_label+=" - ${track_uploader}"
+  fi
+  if [[ -n "${track_duration:-}" ]]; then
+    display_label+=" (${track_duration})"
+  fi
+
+  watch_url="https://www.youtube.com/watch?v=${video_id}"
+
+  mapfile -t stream_rows < <(yt-dlp -f "$FORMAT_STRING" -g "$watch_url" 2>/dev/null || true)
+  stream_url="${stream_rows[0]:-}"
+
+  log_debug "Selected id: ${video_id}"
+  log_debug "Resolved stream URL present: $([[ -n "$stream_url" ]] && printf yes || printf no)"
+
+  if [[ -z "$stream_url" ]]; then
+    printf 'Could not resolve stream URL for selection.\n' >&2
+    search_term=""
+    continue
+  fi
+
+  if [[ "$key" == "alt-q" ]]; then
+    if ! mpc add "$stream_url" >/dev/null 2>&1; then
+      printf 'MPD refused queued stream. Check MPD audio output and URL input support.\n' >&2
+      search_term=""
+      continue
+    fi
+    remember_stream_label "$stream_url" "$display_label"
+    printf 'Queued: %s\n' "$display_label"
+  else
+    mpc clear >/dev/null 2>&1 || true
+
+    if ! mpc add "$stream_url" >/dev/null 2>&1; then
+      printf 'MPD refused stream URL. Check MPD input plugins (ffmpeg/curl) and output config.\n' >&2
+      search_term=""
+      continue
+    fi
+
+    if ! mpc play >/dev/null 2>&1; then
+      printf 'MPD could not start playback.\n' >&2
+      search_term=""
+      continue
+    fi
+
+    remember_stream_label "$stream_url" "$display_label"
+    printf 'Now playing: %s\n' "$display_label"
+  fi
+
+  search_term=""
+done
