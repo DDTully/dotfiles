@@ -27,6 +27,7 @@ alias ga='git add .'
 alias gcam='git commit -a -m'
 alias reload='exec $SHELL -l'
 alias bcwd='dolphin --new-window . >/dev/null 2>&1 & disown'
+alias obsidian='obsidian_appimage >/dev/null 2>&1 & disown'
 alias ff='f() { rg -l -uu -i -F --no-messages "$*" | fzf --preview "bat --style=numbers --color=always {}" --bind "enter:execute($EDITOR {} )"; }; f'
 . "$HOME/.cargo/env"
 
