@@ -13,7 +13,6 @@ Below are the packages (directories) included in this repository:
 - bash
 - bat
 - ghostty
-- hypr
 - nvim
 - starship
 - tmux
