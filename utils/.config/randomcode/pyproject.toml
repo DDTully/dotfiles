@@ -1,7 +1,7 @@
 [project]
 name = "randomcode"
 version = "0.1.0"
-description = "Add your description here"
+description = "Launch or attach to project-specific tmux sessions in ~/Sync/randomcode"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []

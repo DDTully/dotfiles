@@ -9,12 +9,10 @@ _randomcode_completion() {
     if [[ -d "$search_dir" ]]; then
         # Run compgen inside the target directory to get relative folder names
         # Use a subshell so we don't actually change the user's directory
-        local matches
-        matches=$(cd "$search_dir" && compgen -d -- "$cur")
-        
-        # Populate COMPREPLY with the results
-        COMPREPLY=( $matches )
+        while IFS= read -r match; do
+            COMPREPLY+=("$match")
+        done < <(cd "$search_dir" && compgen -d -- "$cur")
     fi
 }
 
-complete -F _randomcode_completion randomcode
+complete -o filenames -F _randomcode_completion randomcode
