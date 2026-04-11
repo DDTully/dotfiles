@@ -16,8 +16,7 @@ Each top-level directory is a Stow package that symlinks into `$HOME`:
 | `tmux`    | tmux config                                      |
 | `utils`   | Utility scripts: `ns` (network scanner), `fzftunes`, `randomcode` |
 | `yazi`    | Yazi terminal file manager config                |
-
-`skills/` contains agent skill definitions for Claude and OpenCode — not a Stow package.
+| `skills`  | Agent skill definitions for Claude and OpenCode  |
 
 ## Requirements
 
