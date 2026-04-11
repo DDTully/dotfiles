@@ -4,6 +4,7 @@ export PATH=$HOME/.opencode/bin:$PATH
 export PATH=$HOME/.config/general:$PATH
 export PATH=$HOME/.config/randomcode:$PATH
 export PATH=$HOME/.config/netscan:$PATH
+export PATH=$HOME/.config/mp4thumb:$PATH
 export PATH=$HOME/.local/bin:$PATH
 export PATH=/usr/lib:$PATH
 
