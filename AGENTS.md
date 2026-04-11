@@ -1,50 +1,60 @@
 # AGENTS.md - Dotfiles Repository Guide
 
-This repository manages personal dotfiles and development environment configurations using GNU Stow.
+Repo manages personal dotfiles/dev env configs via GNU Stow.
 
 ## Key Information
 
-- **Structure**: Each top-level directory (`bash`, `bat`, `ghostty`, `nvim`, `starship`, `tmux`, `yazi`, `utils`) is a Stow package
-- **Target**: Packages are designed to be symlinked into `$HOME`
-- **OS Support**: Debian/Ubuntu and Arch Linux
-- **Dependency**: GNU Stow must be installed
+- **Structure**: Each top-level dir = Stow package symlinking into `$HOME`
+- **OS**: Arch Linux (primary), Debian/Ubuntu
+- **Shell**: Bash
+- **Desktop**: Wayland/KDE
+- **Dependency**: GNU Stow
+
+## Packages
+
+- `bash`: Bashrc, aliases, PATH, env vars
+- `bat`: bat (cat replacement) config
+- `ghostty`: Ghostty terminal config
+- `nvim`: Neovim config
+- `starship`: Cross-shell prompt config
+- `tmux`: tmux config
+- `yazi`: Terminal file manager config
+- `utils`: Utility scripts — `ns` (network scanner), `fzftunes` (music), `randomcode`
+- `skills`: Agent skill defs for Claude (`.claude/`) and OpenCode (`.opencode/`)
 
 ## Common Commands
 
-### Install a package
+### Install
 ```bash
 stow -t $HOME <package-name>
-# Example: stow -t $HOME nvim
 ```
 
-### Remove a package
+### Remove
 ```bash
 stow -D -t $HOME <package-name>
 ```
 
-### Restow (recreate/update) packages
+### Restow (recreate/update)
 ```bash
 stow -R -t $HOME <package-name1> <package-name2>
-# Example: stow -R -t $HOME bash nvim
 ```
 
-### Work from repository root
-When running stow from the repository root, you can omit `-t $HOME`:
+### From repo root (omit `-t $HOME`)
 ```bash
-stow <package-name>  # defaults to symlinking into $HOME
+stow <package-name>
 ```
 
-## Package Directories
-- `bash`: Bash configuration
-- `bat`: Cat clone with syntax highlighting
-- `ghostty`: GPU-accelerated terminal emulator
-- `nvim`: Neovim configuration
-- `starship`: Cross-shell prompt
-- `tmux`: Terminal multiplexer configuration
-- `yazi`: Terminal file manager
-- `utils`: Utility scripts and configurations
+## Coding Conventions
+
+- Shell scripts: `set -Eeuo pipefail`, `shopt -s inherit_errexit`
+- No inline comments — use `: "docstring"` as first line of each function
+- Log/status → stderr; data → stdout
+- No `eval`; commands as arrays
+- Threading: GNU `parallel`, not `xargs`
+- Wayland/KDE env — no X11 tools; use `xdg-open` for URI dispatch
 
 ## Notes
-- The repository assumes a home directory target (`$HOME`)
-- Configuration files within each package directory maintain their relative paths when stowed
-- Always inspect package contents before stowing to understand what will be linked
+
+- Config files keep relative paths when stowed
+- `skills/` stows hidden dirs (`.claude/`, `.opencode/`, `.agents/`) into `$HOME`
+- Inspect package before stowing
