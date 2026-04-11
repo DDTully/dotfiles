@@ -1,8 +1,9 @@
 eval "$(starship init bash)"
-
+export BROWSER="google-chrome-stable"
 export PATH=$HOME/.opencode/bin:$PATH
 export PATH=$HOME/.config/general:$PATH
 export PATH=$HOME/.config/randomcode:$PATH
+export PATH=$HOME/.config/netscan:$PATH
 export PATH=$HOME/.local/bin:$PATH
 export PATH=/usr/lib:$PATH
 
@@ -28,6 +29,7 @@ alias gcam='git commit -a -m'
 alias reload='exec $SHELL -l'
 alias bcwd='dolphin --new-window . >/dev/null 2>&1 & disown'
 alias obsidian='obsidian_appimage >/dev/null 2>&1 & disown'
+alias openshot='openshot_appimage >/dev/null 2>&1 & disown'
 alias ff='f() { rg -l -uu -i -F --no-messages "$*" | fzf --preview "bat --style=numbers --color=always {}" --bind "enter:execute($EDITOR {} )"; }; f'
 . "$HOME/.cargo/env"
 alias testme='uv run pytest --cov=src'
@@ -35,10 +37,3 @@ alias testme='uv run pytest --cov=src'
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
-
-# Added by LM Studio CLI (lms)
-export PATH="$PATH:$HOME/.lmstudio/bin"
-# End of LM Studio CLI section
-
-# Turso
-export PATH="$PATH:/home/tully/.turso"

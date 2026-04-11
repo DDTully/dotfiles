@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-RESULTS_COUNT="${RESULTS_COUNT:-25}"
+RESULTS_COUNT="${RESULTS_COUNT:-100}"
 FORMAT_STRING="${FORMAT_STRING:-bestaudio[ext=m4a]/bestaudio/best}"
 DEBUG="${DEBUG:-0}"
 TAB=$'\t'
