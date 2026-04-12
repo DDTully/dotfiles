@@ -6,6 +6,7 @@ export PATH=$HOME/.config/randomcode:$PATH
 export PATH=$HOME/.config/netscan:$PATH
 export PATH=$HOME/.config/mp4thumb:$PATH
 export PATH=$HOME/.config/tms-util:$PATH
+export PATH=$HOME/.config/addskill:$PATH
 export PATH=$HOME/.local/bin:$PATH
 export PATH=/usr/lib:$PATH
 
