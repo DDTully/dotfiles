@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# ns - Interactive local network scanner with fzf connection menu
-# Dependencies: nmap, fzf, ipcalc, parallel
 set -Eeuo pipefail
 shopt -s inherit_errexit
 
-readonly SCRIPT_NAME=$(basename "${BASH_SOURCE[0]}")
+SCRIPT_NAME=$(basename "${BASH_SOURCE[0]}")
+readonly SCRIPT_NAME
 readonly VERSION="1.0.0"
 
 VERBOSE=0
@@ -72,8 +71,23 @@ get_network_info() {
 
 parse_nmap_host() {
     : "Read nmap grepable output from stdin and print a 3-column formatted line per
-    live host: IP (15 chars), hostname (dynamic width), open ports or 'no open ports'."
-    awk '
+    live host: IP (15 chars), hostname (dynamic width), open ports or 'ping only'.
+    Optional arg: file of known-live IPs to include even if they have no open ports."
+    local live_ips_file="${1:-}"
+    awk -v live_ips_file="$live_ips_file" '
+        BEGIN {
+            svcmap[21]="ftp"; svcmap[22]="ssh"; svcmap[23]="telnet"
+            svcmap[25]="smtp"; svcmap[53]="dns"; svcmap[80]="http"
+            svcmap[110]="pop3"; svcmap[143]="imap"; svcmap[443]="https"
+            svcmap[3306]="mysql"; svcmap[3389]="rdp"; svcmap[5432]="postgres"
+            svcmap[5900]="vnc"; svcmap[6379]="redis"; svcmap[27017]="mongodb"
+            if (live_ips_file != "") {
+                while ((getline line < live_ips_file) > 0) {
+                    ping_live[line] = 1
+                }
+                close(live_ips_file)
+            }
+        }
         /Status: Up/ {
             ip   = $2
             host = ($3 == "()" ? "" : substr($3, 2, length($3)-2))
@@ -86,18 +100,26 @@ parse_nmap_host() {
             split(parts[2], entries, ", ")
             for (i in entries) {
                 split(entries[i], f, "/")
-                if (f[2] == "open")
-                    ports[ip] = (ports[ip] == "" ? f[1] "/" f[3] : ports[ip] ", " f[1] "/" f[3])
+                if (f[2] == "open") {
+                    label = (f[1] in svcmap ? f[1] "/" svcmap[f[1]] : f[1])
+                    ports[ip] = (ports[ip] == "" ? label : ports[ip] ", " label)
+                }
             }
         }
         END {
+            for (ip in ping_live) {
+                if (!(ip in live)) {
+                    live[ip] = ""
+                    ports[ip] = ""
+                }
+            }
             max_host = 0
             for (ip in live) {
                 if (length(live[ip]) > max_host) max_host = length(live[ip])
             }
             max_host += 2
             for (ip in live) {
-                ports_col = (ports[ip] != "" ? ports[ip] : "no open ports")
+                ports_col = (ports[ip] != "" ? ports[ip] : "ping only")
                 printf "%-15s  %-*s  %s\n", ip, max_host, live[ip], ports_col
             }
         }
@@ -106,31 +128,74 @@ parse_nmap_host() {
 
 scan_network() {
     : "Scan the given CIDR network using 32 parallel nmap jobs with interleaved IP
-    distribution. Prints formatted host lines to stdout.
+    distribution. Runs a ping sweep first to discover all live hosts (including those
+    with no open ports), then port-scans only the live set.
+    Prints formatted host lines to stdout.
     Args: network (e.g. 192.168.1.0/24)"
     local network="$1"
     local threads=32
 
+    local live_ips_file all_ips_file
+    live_ips_file=$(mktemp)
+    all_ips_file=$(mktemp)
+    # shellcheck disable=SC2064
+    trap "rm -f '$live_ips_file' '$all_ips_file'" RETURN
+
+    # Enumerate all candidate IPs without scanning
+    # $NF may be "(192.168.1.x)" when nmap resolves a hostname — strip parens
+    nmap -sL -n "$network" 2>/dev/null \
+        | awk '/Nmap scan report/ {print $NF}' > "$all_ips_file"
+
     local -a all_ips
-    mapfile -t all_ips < <(nmap -sL -n "$network" 2>/dev/null | awk '/^Nmap scan report/ {print $NF}')
+    mapfile -t all_ips < "$all_ips_file"
+    local total_candidates=${#all_ips[@]}
 
-    local total=${#all_ips[@]}
-    log "Scanning $total addresses on $network across $threads threads..."
-
-    local -a chunks=()
+    local -a sweep_chunks=()
     local i t chunk
     for (( t = 0; t < threads; t++ )); do
         chunk=""
-        for (( i = t; i < total; i += threads )); do
+        for (( i = t; i < total_candidates; i += threads )); do
             chunk+="${all_ips[$i]} "
+        done
+        [[ -n "${chunk// /}" ]] && sweep_chunks+=("${chunk% }")
+    done
+
+    log "Ping sweep on $network ($total_candidates hosts, $threads threads)..."
+    printf '%s\n' "${sweep_chunks[@]}" \
+        | parallel -j "$threads" \
+            "nmap -sn -T5 --max-retries 1 --max-rtt-timeout 100ms -PE -PS22,80,443,8080,3389 -PA80,443 {=uq=} -oG - 2>/dev/null" \
+        | awk '/Status: Up/ {print $2}' > "$live_ips_file"
+
+    local -a live_ips
+    mapfile -t live_ips < "$live_ips_file"
+    local total=${#live_ips[@]}
+
+    if (( total == 0 )); then
+        warn "Ping sweep found no live hosts on $network"
+        return 0
+    fi
+
+    log "Found $total live hosts; port-scanning across $threads threads..."
+    if (( VERBOSE )); then
+        local ip
+        for ip in "${live_ips[@]}"; do
+            debug "Ping responder: $ip"
+        done
+    fi
+
+    local -a chunks=()
+    for (( t = 0; t < threads; t++ )); do
+        chunk=""
+        for (( i = t; i < total; i += threads )); do
+            chunk+="${live_ips[$i]} "
         done
         [[ -n "${chunk// /}" ]] && chunks+=("${chunk% }")
     done
 
     printf '%s\n' "${chunks[@]}" \
-        | parallel -j "$threads" "nmap -T5 -F --min-rate 1000 --min-parallelism 32 --host-timeout 3s {=uq=} -oG - 2>/dev/null" \
-        | parse_nmap_host \
-        | sort
+        | parallel -j "$threads" "nmap -T5 --top-ports 1000 --max-retries 2 --min-rate 2000 --min-parallelism 64 --host-timeout 15s {=uq=} -oG - 2>/dev/null" \
+        | parse_nmap_host "$live_ips_file" \
+        | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n
 }
 
 open_browser() {
@@ -158,16 +223,15 @@ connect_menu() {
     port number, and executes the chosen action.
     Args: line (a formatted host line from scan_network)"
     local line="$1"
-    local ip port service
+    local ip port
     local -a actions cmd_args
 
     ip=$(awk '{print $1}' <<< "$line")
 
-    local ports_str
-    ports_str=$(sed 's/^[^ ]*  \+[^ ]*  \+//' <<< "$line" | sed 's/^  *//')
+    local ports_str="${line##*  }"
 
-    if [[ -z "$ports_str" || "$ports_str" == "no open ports" ]]; then
-        warn "No open ports found for $ip"
+    if [[ -z "$ports_str" || "$ports_str" == "ping only" ]]; then
+        warn "No open ports found for $ip (host is up via ping only)"
         return 0
     fi
 
@@ -176,21 +240,52 @@ connect_menu() {
         for entry in "${entries[@]}"; do
             entry="${entry// /}"
             port="${entry%%/*}"
-            service="${entry##*/}"
             case "$port" in
-                21)   actions+=("FTP          	ftp $ip") ;;
-                22)   actions+=("SSH          	ssh $ip")
-                      actions+=("SSH-copy-id  	ssh-copy-id $ip") ;;
-                23)   actions+=("Telnet       	telnet $ip") ;;
-                80)   actions+=("HTTP         	browser http://$ip") ;;
-                443)  actions+=("HTTPS        	browser https://$ip") ;;
-                8080) actions+=("HTTP-alt     	browser http://$ip:8080") ;;
-                8443) actions+=("HTTPS-alt    	browser https://$ip:8443") ;;
-                3389) actions+=("RDP          	browser rdp://$ip") ;;
-                5900) actions+=("VNC          	browser vnc://$ip") ;;
+                21)    actions+=("FTP              	ftp $ip") ;;
+                22)    actions+=("SSH              	ssh $ip")
+                       actions+=("SSH-copy-id      	ssh-copy-id $ip")
+                       actions+=("SFTP             	sftp $ip") ;;
+                23)    actions+=("Telnet           	telnet $ip") ;;
+                25)    actions+=("SMTP             	telnet $ip 25") ;;
+                53)    actions+=("DNS query        	dig @$ip version.bind chaos txt") ;;
+                80)    actions+=("HTTP             	browser http://$ip") ;;
+                110)   actions+=("POP3             	telnet $ip 110") ;;
+                139)   actions+=("SMB              	smbclient -L //$ip") ;;
+                143)   actions+=("IMAP             	telnet $ip 143") ;;
+                161)   actions+=("SNMP walk        	snmpwalk -v2c -c public $ip") ;;
+                443)   actions+=("HTTPS            	browser https://$ip") ;;
+                445)   actions+=("SMB              	smbclient -L //$ip") ;;
+                631)   actions+=("CUPS (IPP)       	browser http://$ip:631") ;;
+                873)   actions+=("rsync            	rsync rsync://$ip/") ;;
+                1883)  actions+=("MQTT             	mosquitto_sub -h $ip -t '#' -v") ;;
+                2049)  actions+=("NFS showmount    	showmount -e $ip") ;;
+                2375)  actions+=("Docker API       	browser http://$ip:2375") ;;
+                2376)  actions+=("Docker TLS       	browser https://$ip:2376") ;;
+                3000)  actions+=("Web :3000        	browser http://$ip:3000") ;;
+                3306)  actions+=("MySQL            	mysql -h $ip -u root -p") ;;
+                3389)  actions+=("RDP              	browser rdp://$ip") ;;
+                4000)  actions+=("Web :4000        	browser http://$ip:4000") ;;
+                4200)  actions+=("Web :4200        	browser http://$ip:4200") ;;
+                5000)  actions+=("Web :5000        	browser http://$ip:5000") ;;
+                5432)  actions+=("PostgreSQL       	psql -h $ip -U postgres") ;;
+                5900)  actions+=("VNC              	browser vnc://$ip") ;;
+                5984)  actions+=("CouchDB          	browser http://$ip:5984") ;;
+                6379)  actions+=("Redis            	redis-cli -h $ip") ;;
+                7474)  actions+=("Neo4j            	browser http://$ip:7474") ;;
+                8000)  actions+=("Web :8000        	browser http://$ip:8000") ;;
+                8080)  actions+=("HTTP-alt         	browser http://$ip:8080") ;;
+                8443)  actions+=("HTTPS-alt        	browser https://$ip:8443") ;;
+                8888)  actions+=("Jupyter          	browser http://$ip:8888") ;;
+                9090)  actions+=("Web :9090        	browser http://$ip:9090") ;;
+                9091)  actions+=("Web :9091        	browser http://$ip:9091") ;;
+                9100)  actions+=("Prometheus node  	browser http://$ip:9100/metrics") ;;
+                9200)  actions+=("Elasticsearch    	browser http://$ip:9200") ;;
+                9300)  actions+=("ES transport     	browser http://$ip:9300") ;;
+                27017) actions+=("MongoDB          	mongosh --host $ip") ;;
                 *)
-                    actions+=("SSH to :$port	ssh -p $port $ip")
-                    actions+=("Open :$port in browser	browser http://$ip:$port")
+                    actions+=("SSH to :$port    	ssh -p $port $ip")
+                    actions+=("Open :$port HTTP 	browser http://$ip:$port")
+                    actions+=("Open :$port HTTPS	browser https://$ip:$port")
                     ;;
             esac
         done
@@ -247,7 +342,7 @@ main() {
 
     local selected fzf_out key host_count
     while true; do
-        host_count=$(wc -l < <(printf '%s' "$hosts"))
+        host_count=$(wc -l < <(printf '%s\n' "$hosts"))
         fzf_out=$(printf '%s' "$hosts" | fzf \
             --prompt="Filter for host: " \
             --header="Networks: $networks_scanned  |  $host_count hosts  |  ctrl-n: add network" \
