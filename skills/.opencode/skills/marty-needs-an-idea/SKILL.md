@@ -1,6 +1,6 @@
 ---
 name: marty-needs-an-idea
-description: "Find mundane products with oddly specific negative review comments on Amazon, Walmart, and other retail sites. Write findings to a timestamped markdown file. Triggers: find oddly specific reviews, funny negative reviews, mundane product reviews, worst product reviews, hilarious amazon reviews, walmart terrible reviews"
+description: "Find mundane products with oddly specific review comments on Amazon, Walmart, and other retail sites. Ask the user what review tone to target: extremely positive, neutral, negative, or unhinged. Write findings to a timestamped markdown file. Triggers: find oddly specific reviews, funny reviews, mundane product reviews, worst product reviews, hilarious amazon reviews, walmart terrible reviews"
 risk: low
 source: community
 date_added: "2026-04-12"
@@ -8,17 +8,17 @@ date_added: "2026-04-12"
 
 # Marty Needs an Idea
 
-> Find and document oddly specific negative reviews for mundane products.
+> Find and document oddly specific reviews for mundane products.
 
 ---
 
 ## When to Use
 
 This skill is applicable when the user requests:
-- Finding funny/oddly specific negative product reviews
-- Searching for the worst Amazon/Walmart reviews
-- Content creation: finding amusing customer complaints
-- "mundane products with oddly specific negative review comments"
+- Finding funny/oddly specific product reviews
+- Searching for the best, worst, neutral, or unhinged Amazon/Walmart reviews
+- Content creation: finding amusing customer praise or complaints
+- "mundane products with oddly specific review comments"
 - Any variation of finding bizarre product reviews
 
 **Trigger phrases:**
@@ -36,13 +36,13 @@ This skill is applicable when the user requests:
 ## Workflow
 
 ```
-Step 1: Ask user intent
+    Step 1: Ask review tone first
     ↓
-Step 2: Web search for oddly specific negative reviews
+    Step 2: Web search for oddly specific reviews
     ↓
 Step 3: Exclude previously covered items (if any provided)
     ↓
-Step 4: Compile findings with links
+Step 4: Open the main product page and use its visible review summaries/snippets
     ↓
 Step 5: Write timestamped markdown file
     ↓
@@ -51,13 +51,15 @@ Step 6: Format with prettier (if available)
 
 ---
 
-## Step 1: Clarify Intent
+## Step 1: Clarify Tone First
 
 Before searching, ask the user:
 
-1. **Purpose**: Entertainment/Fun, Research/Analysis, Content Creation, or Other?
-2. **Categories**: Household Basics, Personal Care, Office/School Supplies, Any Mundane Products, or Specific Category?
-3. **Output Format**: List with Links, Detailed Report, Just Examples, or Search Strategy?
+1. **Review Tone**: Extremely Positive, Neutral, Negative, or Unhinged?
+2. **Purpose**: Entertainment/Fun, Research/Analysis, Content Creation, or Other?
+3. **Categories**: Household Basics, Personal Care, Office/School Supplies, Any Mundane Products, or Specific Category?
+4. **Specific Product Name**: A product name to target, or leave it open-ended.
+5. **Output Format**: List with Links, Detailed Report, Just Examples, or Search Strategy?
 
 Use the `question` tool to get these answers, or proceed with reasonable defaults if not specified.
 
@@ -71,13 +73,16 @@ Run multiple web searches in parallel with variations:
 
 ```
 Query variations:
-- "oddly specific negative review amazon mundane product"
+- "[specific product name] review amazon"
+- "[specific product name] review walmart"
+- "oddly specific review amazon mundane product"
+- "best product ever amazon review funny"
 - "worst purchase ever amazon review funny"
-- "tastes like looks like negative review amazon"
-- "mundane product oddly specific negative review walmart"
-- "hilarious amazon reviews 1 star funny"
-- "worst product everwalmart review"
-- "funny negative review specific complaint"
+- "neutral review oddly specific amazon"
+- "unhinged amazon review mundane product"
+- "mundane product oddly specific review walmart"
+- "hilarious amazon reviews funny"
+- "funny review specific complaint"
 ```
 
 ### Pattern-Based Searches
@@ -88,6 +93,14 @@ Also search for specific phrases that indicate oddly specific reviews:
 - "waste of money" + specific producttype
 - "save yourself" + "use a [alternative]"
 - "I have tasted better" + "sawdust/cardboard"
+
+### Review Tone Targets
+
+Adjust search terms based on the user's chosen tone:
+- **Extremely Positive**: add phrases like "love this", "best ever", "changed my life", "would buy again"
+- **Neutral**: add phrases like "does the job", "as expected", "nothing special", "works fine"
+- **Negative**: add phrases like "waste of money", "cardboard", "broke immediately", "save yourself"
+- **Unhinged**: add phrases like "I did not expect", "absolutely not", "what is happening", "this product has seen things"
 
 ---
 
@@ -108,15 +121,16 @@ For each finding, capture:
 |-------|-------------|
 | Product Name | Full product name |
 | Platform | Amazon/Walmart/Other |
+| Product Page | Main product page URL |
 | Link | Direct product URL |
-| Review Quote | The oddly specific negative review text |
+| Review Quote | The oddly specific review text or visible snippet |
 | Specifics | Details that make it oddly specific |
 | Rating | Product rating and review count |
 | Helpfulness | Number of "helpful" votes |
 
 ### Categories to Find
 
-1. **Food Products** with vivid taste comparisons (cardboard, soap, sawdust, etc.)
+1. **Food Products** with vivid taste comparisons or praise
 2. **Kitchen Gadgets** that fail spectacularly
 3. **Cleaning Tools** with specific complaints
 4. **Small Appliances** with bizarre failures
@@ -129,6 +143,7 @@ For each finding, capture:
 - Social impact focus (affects co-workers, family)
 - Inefficiency comedy (worse than manual method)
 - Design flaws with exact consequences
+- Product-page review snippets that surface the complaint without needing a locked review URL
 
 ---
 
@@ -137,7 +152,7 @@ For each finding, capture:
 ### File Naming Convention
 
 ```
-YYYY-MM-DD_HH-MM-SS_oddly_specific_negative_reviews.md
+YYYY-MM-DD_HH-MM-SS_oddly_specific_reviews.md
 ```
 
 Generated using:
@@ -152,10 +167,12 @@ Write to `/home/tully/Sync/marty/` (working directory)
 ### Template
 
 ```markdown
-# Detailed Report: Oddly Specific Negative Reviews for Mundane Products
+# Detailed Report: Oddly Specific Reviews for Mundane Products
 
 **Date Compiled:** [Timestamp]  
 **Purpose:** [User's stated purpose]
+**Review Tone:** [Extremely Positive / Neutral / Negative / Unhinged]
+**Requested Product Name:** [Exact product name, if provided]
 
 ---
 
@@ -170,7 +187,11 @@ Write to `/home/tully/Sync/marty/` (working directory)
 ### 1. [Category Name]
 
 #### [Product Name]
-- [Platform] Link: [URL]
+- [Platform] Product Page: [Main page URL]
+- [Platform] Direct Link: [Direct URL]
+- Source URLs:
+  - [Search result or article URL 1]
+  - [Search result or article URL 2]
 - Review: "*[Review quote]*"
 - Specifics: [What makes it oddly specific]
 - Rating: [X.X/5 stars] ([Y] reviews)
@@ -198,8 +219,8 @@ Write to `/home/tully/Sync/marty/` (working directory)
 ### Suggested Formats:
 - **Social media series:** "Most Oddly Specific [Platform] Review of the Week"
 - **Video compilation:** Dramatic readings with product demonstrations
-- **Article:** "[When Mundane Products Fail Spectacularly]"
-- **Podcast segment:** Analyzing why certain products inspire such vivid criticism
+- **Article:** "[When Mundane Products Inspire Extreme Opinions]"
+- **Podcast segment:** Analyzing why certain products inspire such vivid reactions
 
 ---
 
@@ -208,6 +229,7 @@ Write to `/home/tully/Sync/marty/` (working directory)
 - Search terms used: [list]
 - Platforms: [list]
 - Date range: [range]
+- Product/source URLs: [list the actual clickable URLs used for each finding]
 
 ---
 
@@ -233,7 +255,7 @@ If prettier is not available, skip this step - the markdown is still valid.
 After completing the task, output:
 
 ```
-Done. File saved to: `/home/tully/Sync/marty/[timestamp]_oddly_specific_negative_reviews.md`
+Done. File saved to: `/home/tully/Sync/marty/[timestamp]_oddly_specific_reviews.md`
 ```
 
 Include a brief summary of:
@@ -246,3 +268,4 @@ Include a brief summary of:
 ## When to Use
 
 This skill is applicable to execute the workflow or actions described in the overview.
+description: "Find mundane products with oddly specific negative review comments on Amazon, Walmart, and other retail sites. Prefer main product pages and their review summaries/snippets over direct review URLs. Write findings to a timestamped markdown file. Triggers: find oddly specific reviews, funny negative reviews, mundane product reviews, worst product reviews, hilarious amazon reviews, walmart terrible reviews"

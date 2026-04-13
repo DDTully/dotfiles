@@ -1,6 +1,6 @@
 ---
 name: marty-has-an-idea
-description: "Extract and document details from a negative review URL. Captures product name, details, warnings, the main review, and other reviews. Triggers: analyze this review, extract review details, document this review, save this negative review, marty has an idea"
+description: "Extract and document details from a product page or review URL. Ask the user what review tone to target: extremely positive, neutral, negative, or unhinged. Prefer the main product page and its review section, then fall back to the direct review URL if needed. Triggers: analyze this review, extract review details, document this review, save this review, marty has an idea"
 risk: low
 source: community
 date_added: "2026-04-12"
@@ -8,25 +8,26 @@ date_added: "2026-04-12"
 
 # Marty Has an Idea
 
-> Extract and document details from a negative product review URL.
+> Extract and document details from a product page or review URL.
 
 ---
 
 ## When to Use
 
 This skill is applicable when the user requests:
-- Analyzing a specific negative review
-- Extracting product details from a review page
+- Analyzing a specific review
+- Extracting product details from a product page or review page
 - "Capture the main item name"
 - "Save this review"
-- "Document this negative review"
+- "Document this review"
+- Framing the extracted review as extremely positive, neutral, negative, or unhinged
 - "marty has an idea"
 
 **Trigger phrases:**
 - "analyze this review"
 - "extract review details"
 - "capture the product"
-- "save this negative review"
+- "save this review"
 - "document this review"
 - "marty has an idea"
 
@@ -35,40 +36,57 @@ This skill is applicable when the user requests:
 ## Workflow
 
 ```
-Step 1: Ask for review URL (required input)
+Step 1: Ask review tone first
     ↓
-Step 2: Fetch the review page
+Step 2: Ask for a product page, ASIN, or review URL if needed
     ↓
-Step 3: Extract product information
+Step 3: Prefer the main product page and its review section
     ↓
-Step 4: Find other reviews on the page
+Step 4: Extract product information and visible review snippets
     ↓
-Step 5: Write markdown file with shortened name
+Step 5: Find other reviews and linked review pages
+    ↓
+Step 6: Write markdown file with shortened name
 ```
 
 ---
 
-## Step 1: Request URL
+## Step 1: Clarify Tone First
 
-This skill **requires** a URL to a product review page. Ask the user:
+Before fetching, ask the user:
 
-> Please provide the URL to the negative review you'd like me to analyze.
+1. **Review Tone**: Extremely Positive, Neutral, Negative, or Unhinged?
+2. **Purpose**: Entertainment/Fun, Research/Analysis, Content Creation, or Other?
+3. **Source Type**: Product page, ASIN, or review URL?
+4. **Output Format**: Compact Report, Detailed Report, or Just the main review?
 
 Use the `question` tool if needed.
 
----
-
-## Step 2: Fetch the Review Page
-
-Use `webfetch` to retrieve the review page content:
-
-```
-webfetch(url: [provided URL], format: markdown)
-```
+If the user already provided a source URL, keep it and continue.
 
 ---
 
-## Step 3: Extract Information
+## Step 2: Request URL
+
+If no source was provided, ask the user:
+
+> Please provide the product page, ASIN, or review URL you'd like me to analyze.
+
+---
+
+## Step 3: Fetch the Review Page
+
+Use `webfetch` to retrieve the main product page first when possible:
+
+```
+webfetch(url: [product page or ASIN URL], format: markdown)
+```
+
+If the user only provides a direct customer-review URL and it is blocked, derive the ASIN from the URL and fetch the main product page instead.
+
+---
+
+## Step 4: Extract Information
 
 From the fetched content, capture:
 
@@ -77,10 +95,11 @@ From the fetched content, capture:
 | Product Name | Full product name (main item title) |
 | Product Details | Size, quantity, variant, specifications |
 | Brand | Manufacturer/seller |
+| Review Tone | User-selected tone for the report |
 | Rating | Product star rating |
 | Review Count | Number of reviews |
 | Warning | Any safety warnings or important notices |
-| Negative Review | The main negative review text |
+| Review Snippet | The main review text or best visible snippet matching the selected tone |
 | Review Author | Reviewer name or "Amazon Customer" |
 | Review Date | When review was posted |
 | Review Rating | Stars given by reviewer |
@@ -88,18 +107,22 @@ From the fetched content, capture:
 
 ---
 
-## Step 4: Find Other Reviews
+## Step 5: Find Other Reviews
 
-Scan the page for other reviews (both positive and negative) that may be interesting:
+Scan the product page for other reviews with different sentiment that may be interesting:
 
 - Notable positive reviews
-- Other negative reviews with different complaints
+- Other reviews with different complaints
 - Funny or sarcastic reviews
 - Updated reviews (with "UPDATE:")
+- Review snippets shown on the product page
+- Linked review pages reachable from the review summary
+
+If the user selected a tone, prioritize snippets that match that tone.
 
 ---
 
-## Step 5: Write Markdown File
+## Step 6: Write Markdown File
 
 ### File Naming Convention
 
@@ -129,6 +152,7 @@ Write to `/home/tully/Sync/marty/`
 
 **Source:** [URL]  
 **Extracted:** [Date]  
+**Review Tone:** [Extremely Positive / Neutral / Negative / Unhinged]  
 **Overall Rating:** [X.X]/5 stars ([Y] reviews)
 
 ---
@@ -141,6 +165,7 @@ Write to `/home/tully/Sync/marty/`
 | Brand | [Brand] |
 | Details | [Size, quantity, variant] |
 | ASIN | [ASIN if available] |
+| Review Tone | [Selected tone] |
 | Rating | [X.X]/5 stars |
 | Reviews | [Count] |
 
@@ -152,7 +177,7 @@ Write to `/home/tully/Sync/marty/`
 
 ---
 
-## Main Review
+## Primary Review
 
 > **[Review Rating] stars** - *[Review Title]*
 
@@ -169,9 +194,9 @@ Write to `/home/tully/Sync/marty/`
 - [Notable positive review 1]
 - [Notable positive review 2]
 
-### Other Complaints
-- [Other negative review 1]
-- [Other negative review 2]
+### Other Notes
+- [Other review 1]
+- [Other review 2]
 
 ### Updates
 - [Any updated reviews]
@@ -182,6 +207,7 @@ Write to `/home/tully/Sync/marty/`
 
 - URL: [Original URL]
 - Platform: [Amazon/Walmart/Other]
+- Selected tone: [Extremely Positive / Neutral / Negative / Unhinged]
 
 ---
 
@@ -201,7 +227,7 @@ Summary:
 - Product: [Full name]
 - Rating: [X.X]/5 stars
 - Reviews captured: [N]
-- Key complaint: [Brief description]
+- Key takeaway: [Brief description]
 ```
 
 ---
