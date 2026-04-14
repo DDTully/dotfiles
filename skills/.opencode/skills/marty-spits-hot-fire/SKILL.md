@@ -45,7 +45,9 @@ Step 5: Use lyric-writer to create initial lyrics
     ↓
 Step 6: Use pronunciation-specialist to refine pronunciation
     ↓
-Step 7: Save to markdown file with title as filename
+Step 7: Use album-art-director to draft album art direction
+    ↓
+Step 8: Save to markdown file with title as filename
 ```
 
 ## Title Lock
@@ -148,7 +150,22 @@ If the title is user-provided, it is fixed and may not change.
 
 ---
 
-## Step 7: Save Output
+## Step 7: Draft Album Art Direction
+
+If album art is needed for the output file, ask which AI art platform they use unless it is already specified, then use album-art-director principles to write a concise visual brief.
+
+Capture:
+- A 2-3 sentence concept description
+- The AI art platform to use
+- The prompt format that platform needs
+- Negative prompt only when supported
+- Square 1:1, thumbnail-safe, 3000x3000px minimum specs
+
+Keep the direction focused, low-clutter, and easy to read at small sizes.
+
+---
+
+## Step 8: Save Output
 
 Create a markdown file with:
 - Filename: [sanitized_title].md (spaces → underscores)
@@ -176,6 +193,14 @@ File structure:
 ## Gemini Handoff
 
 [Exact title-lock instruction]
+
+## Album Art
+
+**Platform:** [Selected AI art platform]
+**Concept:** [2-3 sentence visual direction based on album-art-director]
+**Prompt:** [Platform-specific prompt]
+**Negative Prompt:** [If supported]
+**Specs:** Square 1:1, thumbnail-safe, 3000x3000px minimum
 
 ## Lyrics
 
