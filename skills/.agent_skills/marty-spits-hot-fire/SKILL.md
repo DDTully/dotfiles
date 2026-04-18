@@ -1,6 +1,6 @@
 ---
 name: marty-spits-hot-fire
-description: "Create lyrics from a markdown source file using lyric-writer, pronunciation-specialist, lyric-reviewer, and album-art-director skills. Asks for genre, prompts for a title before lyric creation, suggests 3 title options when none is given, preserves any user-provided title exactly, saves lyrics to markdown file with title as filename (underscores for spaces), and appends song tags at the bottom. Use the exact user title verbatim; do not invent a new title. Prefer source files that contain full review text, and preserve that text verbatim for downstream lyric writing. Triggers: create lyrics from source, make song from text, write lyrics from markdown"
+description: "Create lyrics from a markdown source file containing reviews or product details using lyric-writer, pronunciation-specialist, lyric-reviewer, and album-art-director skills. Ask one question at a time after the file is known: source type, then genre, then title before lyric creation. Suggest 3 title options when none is given, preserve any user-provided title exactly, save lyrics to markdown file with title as filename (underscores for spaces), and append song tags at the bottom. Use the exact user title verbatim; do not invent a new title. Prefer source files that contain full review text or full product details, and preserve that text verbatim for downstream lyric writing. Triggers: create lyrics from source, make song from text, write lyrics from markdown, product details to lyrics"
 risk: low
 source: community
 date_added: "2026-04-12"
@@ -17,6 +17,8 @@ date_added: "2026-04-12"
 This skill is applicable when the user requests:
 
 - Creating lyrics from a source text/markdown file
+- Turning review text into lyrics
+- Turning product details into lyrics
 - "Write lyrics from [source file]"
 - "Make a song from this text"
 - "Create lyrics using my notes"
@@ -29,6 +31,7 @@ This skill is applicable when the user requests:
 - "write lyrics from markdown"
 - "marty spits hot fire"
 - "turn text into lyrics"
+- "turn product details into lyrics"
 
 ---
 
@@ -39,28 +42,38 @@ This skill is applicable when the user requests:
 
 ---
 
+## Question Pacing
+
+- Ask exactly one question per turn.
+- Never combine source file, source type, genre, or title into a single prompt.
+- Wait for the user's answer before asking the next question.
+
+---
+
 ## Workflow
 
 ```
 Step 1: Ask for source markdown file
     ↓
-Step 2: Ask for genre (with suggestions)
+Step 2: Ask what kind of data the file contains (review or product details)
     ↓
-Step 3: Ask for title immediately after genre selection
+Step 3: Ask for genre (with suggestions)
     ↓
-Step 4: Read source file
+Step 4: Ask for title in a separate turn after genre selection
     ↓
-Step 5: If no title was provided, suggest 3 based on the source and finalize the choice
+Step 5: Read source file
     ↓
-Step 6: Use lyric-writer to create initial lyrics
+Step 6: If no title was provided, suggest 3 based on the selected data type and source content, then finalize the choice
     ↓
-Step 7: Run pronunciation-specialist to resolve phonetic risks
+Step 7: Use lyric-writer to create initial lyrics
     ↓
-Step 8: Run lyric-reviewer to verify structure, pronunciation, and pacing
+Step 8: Run pronunciation-specialist to resolve phonetic risks
     ↓
-Step 9: Use album-art-director to draft album art direction
+Step 9: Run lyric-reviewer to verify structure, pronunciation, and pacing
     ↓
-Step 10: Save to markdown file with title as filename and tags at bottom
+Step 10: Use album-art-director to draft album art direction
+    ↓
+Step 11: Save to markdown file with title as filename and tags at bottom
 ```
 
 ## Title Lock
@@ -84,7 +97,22 @@ If they provide a file path, validate it exists. If not, ask again.
 
 ---
 
-## Step 2: Genre Selection
+## Step 2: Identify the Source Data Type
+
+After the file path is known, ask:
+
+> Does this file contain a review or product details?
+
+Use exactly one of these options unless the file clearly mixes both:
+
+- Review
+- Product Details
+
+If the file mixes both, ask which one should be treated as the primary source.
+
+---
+
+## Step 3: Genre Selection
 
 Present genre options and ask for selection:
 
@@ -100,9 +128,9 @@ Use the `question` tool to get their choice.
 
 ---
 
-## Step 3: Ask for Title Immediately After Genre Selection
+## Step 4: Ask for Title in a Separate Turn After Genre Selection
 
-Ask the user for the song title before reading the source.
+Ask the user for the song title in a separate message after the genre is confirmed.
 
 - If the user provides a title, treat it as canonical.
 - Use the user title verbatim.
@@ -110,10 +138,12 @@ Ask the user for the song title before reading the source.
 - Do not rename, improve, or "clean up" the title.
 - Use the exact title in the filename, H1, metadata, and any prompt passed to another downstream model.
 - This title prompt happens every time, with no exceptions.
+- Do not ask the title together with genre or any other question.
 
-If the user does not provide a title, continue after reading the source and suggest **3** options based on the source content:
+If the user does not provide a title, continue after reading the source and suggest **3** options based on the selected data type and source content:
 
-- Extract key themes, phrases, or concepts
+- For reviews: extract key themes, phrases, or emotional angles from the review text
+- For product details: pull out standout features, specs, use cases, or product imagery
 - Create compelling, song-appropriate titles
 - Keep each under 60 characters for good song titles
 - Present exactly 3 options for the user to choose from
@@ -122,13 +152,13 @@ Use `question` tool for title selection if providing options.
 
 ---
 
-## Step 4: Read Source File
+## Step 5: Read Source File
 
-Use the `read` tool to extract content from the provided markdown file. Preserve full review text blocks verbatim; do not trim them down to short snippets when the source already contains the complete text.
+Use the `read` tool to extract content from the provided markdown file. Preserve full review text blocks or full product detail blocks verbatim; do not trim them down to short snippets when the source already contains the complete text.
 
 ---
 
-## Step 5: Initial Lyric Creation
+## Step 6: Initial Lyric Creation
 
 Call the lyric-writer skill with the source content:
 
@@ -136,7 +166,11 @@ Call the lyric-writer skill with the source content:
 lyric-writer: [source content] [genre: selected genre]
 ```
 
-When the source came from Marty Has an Idea, prioritize the full review text sections over any summaries or metadata. Keep the original wording intact for lyric adaptation.
+When the source type is Review, prioritize the full review text sections over any summaries or metadata. Keep the original wording intact for lyric adaptation.
+
+When the source type is Product Details, prioritize the product description, feature bullets, spec tables, warnings, and use-case language over marketing fluff. Keep the original wording intact for lyric adaptation and do not invent claims not present in the source.
+
+If the source came from Marty Has an Idea, use the extracted review sections as the review path.
 
 Then immediately run pronunciation-specialist and lyric-reviewer before saving. Do not skip QC, even if the draft looks complete. The lyric-writer skill is mandatory; never generate lyrics without invoking it.
 
@@ -152,7 +186,7 @@ This will:
 
 ---
 
-## Step 6: Draft Album Art Direction
+## Step 7: Draft Album Art Direction
 
 If album art is needed for the output file, ask which AI art platform they use unless it is already specified, then use album-art-director principles to write a concise universal visual brief.
 
@@ -168,7 +202,7 @@ Keep the direction focused, low-clutter, and easy to read at small sizes.
 
 ---
 
-## Step 7: Save Output
+## Step 8: Save Output
 
 Create a markdown file with:
 
@@ -184,6 +218,7 @@ File structure:
 
 **Genre:** [Selected Genre]
 **Source:** [Source File Path]
+**Source Type:** [Review / Product Details]
 **Created:** [Timestamp]
 
 ## Lyrics
@@ -204,7 +239,7 @@ File structure:
 
 ## Source Text
 
-[Full source text or full review text from the markdown file, preserved verbatim when available]
+[Full source text or full review/product detail text from the markdown file, preserved verbatim when available]
 
 ---
 
@@ -230,7 +265,7 @@ The process ensures:
 7. Title placement in chorus (first or last line)
 8. Hook/worthy title emphasis
 9. Pronunciation-specialist and lyric-reviewer both completed; no unresolved homographs or QC gaps.
-10. Title was prompted immediately after genre selection, with 3 suggestions when needed.
+10. Source type was prompted immediately after file selection, and title was prompted immediately after genre selection, with 3 suggestions when needed.
 
 ---
 
@@ -243,6 +278,7 @@ Done. File saved to: `/home/tully/Sync/marty/[song_title].md`
 
 Summary:
 - Source: [filename]
+- Source type: [review/product details]
 - Genre: [selected]
 - Title: [chosen title]
 - Title exact match: [yes/no]
