@@ -1,6 +1,6 @@
 ---
 name: marty-spits-hot-fire
-description: "Create lyrics from a markdown source file using lyric-writer and album-art-director skills. Asks for genre, preserves any user-provided title exactly, suggests title only when none is given, saves lyrics to markdown file with title as filename (underscores for spaces). Use the exact user title verbatim; do not invent a new title. Prefer source files that contain full review text, and preserve that text verbatim for downstream lyric writing. Triggers: create lyrics from source, make song from text, write lyrics from markdown"
+description: "Create lyrics from a markdown source file using lyric-writer, pronunciation-specialist, lyric-reviewer, and album-art-director skills. Asks for genre, prompts for a title before lyric creation, suggests 3 title options when none is given, preserves any user-provided title exactly, saves lyrics to markdown file with title as filename (underscores for spaces), and appends song tags at the bottom. Use the exact user title verbatim; do not invent a new title. Prefer source files that contain full review text, and preserve that text verbatim for downstream lyric writing. Triggers: create lyrics from source, make song from text, write lyrics from markdown"
 risk: low
 source: community
 date_added: "2026-04-12"
@@ -15,6 +15,7 @@ date_added: "2026-04-12"
 ## When to Use
 
 This skill is applicable when the user requests:
+
 - Creating lyrics from a source text/markdown file
 - "Write lyrics from [source file]"
 - "Make a song from this text"
@@ -22,11 +23,19 @@ This skill is applicable when the user requests:
 - Any variation of turning written content into song lyrics
 
 **Trigger phrases:**
+
 - "create lyrics from source"
 - "make song from text"
 - "write lyrics from markdown"
 - "marty spits hot fire"
 - "turn text into lyrics"
+
+---
+
+## Required Skills
+
+- **lyric-writer** is mandatory and must be invoked before saving.
+- Do not bypass lyric-writer or generate lyrics directly.
 
 ---
 
@@ -37,15 +46,21 @@ Step 1: Ask for source markdown file
     ↓
 Step 2: Ask for genre (with suggestions)
     ↓
-Step 3: Read source file
+Step 3: Ask for title immediately after genre selection
     ↓
-Step 4: Lock or generate title
+Step 4: Read source file
     ↓
-Step 5: Use lyric-writer to create initial lyrics
+Step 5: If no title was provided, suggest 3 based on the source and finalize the choice
     ↓
-Step 6: Use album-art-director to draft album art direction
+Step 6: Use lyric-writer to create initial lyrics
     ↓
-Step 7: Save to markdown file with title as filename
+Step 7: Run pronunciation-specialist to resolve phonetic risks
+    ↓
+Step 8: Run lyric-reviewer to verify structure, pronunciation, and pacing
+    ↓
+Step 9: Use album-art-director to draft album art direction
+    ↓
+Step 10: Save to markdown file with title as filename and tags at bottom
 ```
 
 ## Title Lock
@@ -61,7 +76,8 @@ Step 7: Save to markdown file with title as filename
 
 ## Step 1: Request Source File
 
-Ask the user: 
+Ask the user:
+
 > What markdown file should I use as the source for the lyrics?
 
 If they provide a file path, validate it exists. If not, ask again.
@@ -73,6 +89,7 @@ If they provide a file path, validate it exists. If not, ask again.
 Present genre options and ask for selection:
 
 **Recommended genres for source-based lyrics:**
+
 1. Folk/Acoustic (Recommended) - Great for storytelling, spoken word sources
 2. Hip-Hop/Rap - Good for dense text, lists, rants
 3. Spoken Word - Natural fit for prose sources
@@ -83,39 +100,53 @@ Use the `question` tool to get their choice.
 
 ---
 
-## Step 3: Read Source File
+## Step 3: Ask for Title Immediately After Genre Selection
 
-Use the `read` tool to extract content from the provided markdown file. Preserve full review text blocks verbatim; do not trim them down to short snippets when the source already contains the complete text.
+Ask the user for the song title before reading the source.
+
+- If the user provides a title, treat it as canonical.
+- Use the user title verbatim.
+- Do not generate alternate titles.
+- Do not rename, improve, or "clean up" the title.
+- Use the exact title in the filename, H1, metadata, and any prompt passed to another downstream model.
+- This title prompt happens every time, with no exceptions.
+
+If the user does not provide a title, continue after reading the source and suggest **3** options based on the source content:
+
+- Extract key themes, phrases, or concepts
+- Create compelling, song-appropriate titles
+- Keep each under 60 characters for good song titles
+- Present exactly 3 options for the user to choose from
+
+Use `question` tool for title selection if providing options.
 
 ---
 
-## Step 4: Generate Title Suggestion
+## Step 4: Read Source File
 
-If the user already provided a title, keep it exactly as given and skip suggestions.
-
-If no title was provided, suggest one based on the source content:
-- Extract key themes, phrases, or concepts
-- Create a compelling, song-appropriate title
-- Keep it under 60 characters for good song titles
-- Present 2-3 options for user to choose from
-
-Use `question` tool for title selection if providing options.
+Use the `read` tool to extract content from the provided markdown file. Preserve full review text blocks verbatim; do not trim them down to short snippets when the source already contains the complete text.
 
 ---
 
 ## Step 5: Initial Lyric Creation
 
 Call the lyric-writer skill with the source content:
+
 ```
 lyric-writer: [source content] [genre: selected genre]
 ```
 
 When the source came from Marty Has an Idea, prioritize the full review text sections over any summaries or metadata. Keep the original wording intact for lyric adaptation.
 
+Then immediately run pronunciation-specialist and lyric-reviewer before saving. Do not skip QC, even if the draft looks complete. The lyric-writer skill is mandatory; never generate lyrics without invoking it.
+
 This will:
+
 - Apply professional prosody and rhyme craft
 - Follow quality checks (13-point system)
 - Create structured lyrics (verses, chorus, bridge)
+- Resolve pronunciation risks via pronunciation-specialist
+- Verify the final lyrics via lyric-reviewer
 - Show refinement passes
 - Generate Suno style prompt
 
@@ -126,6 +157,7 @@ This will:
 If album art is needed for the output file, ask which AI art platform they use unless it is already specified, then use album-art-director principles to write a concise universal visual brief.
 
 Capture:
+
 - A 2-3 sentence concept description
 - The AI art platform to use
 - A platform-agnostic prompt that can be used in any image model
@@ -139,11 +171,14 @@ Keep the direction focused, low-clutter, and easy to read at small sizes.
 ## Step 7: Save Output
 
 Create a markdown file with:
+
 - Filename: [sanitized_title].md (spaces → underscores)
 - Location: `/home/tully/Sync/marty/`
 - Title must match the user-provided title exactly when one exists.
+- Add a `## Tags` section at the bottom with 5-8 relevant hashtags for the song, written comma-separated on a single line.
 
 File structure:
+
 ```markdown
 # [Song Title]
 
@@ -172,7 +207,12 @@ File structure:
 [Full source text or full review text from the markdown file, preserved verbatim when available]
 
 ---
-*Generated by Marty Spits Hot Fire skill*
+
+_Generated by Marty Spits Hot Fire skill_
+
+## Tags
+
+#tag1, #tag2, #tag3, #tag4, #tag5
 ```
 
 ---
@@ -180,6 +220,7 @@ File structure:
 ## Quality Assurance
 
 The process ensures:
+
 1. Professional lyric structure (verse/chorus contrast)
 2. Strong prosody for Suno generation
 3. Show-don't-tell storytelling
@@ -188,6 +229,8 @@ The process ensures:
 6. Appropriate section lengths for genre
 7. Title placement in chorus (first or last line)
 8. Hook/worthy title emphasis
+9. Pronunciation-specialist and lyric-reviewer both completed; no unresolved homographs or QC gaps.
+10. Title was prompted immediately after genre selection, with 3 suggestions when needed.
 
 ---
 
@@ -203,8 +246,9 @@ Summary:
 - Genre: [selected]
 - Title: [chosen title]
 - Title exact match: [yes/no]
-- Order: lyrics, prompt, album art
+- Order: title, lyrics, prompt, album art, tags
 - Sections: [verse/chorus/bridge count]
+- Tags: [comma-separated list of relevant hashtags]
 ```
 
 ---
