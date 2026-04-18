@@ -95,7 +95,7 @@ Treat freshness as a hard filter, not a nice-to-have.
 
 ### Primary Search Queries
 
-Run multiple web searches in parallel with variations, using different category buckets, intent shapes, and recency cues:
+Run multiple web searches in parallel with variations, using different category buckets, intent shapes, and recency cues. Always include at least one explicit unhinged branch, even when the requested tone is not unhinged, so the candidate pool includes more chaotic outliers:
 
 ```
 Query variations:
@@ -106,6 +106,9 @@ Query variations:
 - "[category] worst purchase review amazon verified purchase"
 - "[category] neutral review oddly specific newer"
 - "[category] unhinged review mundane product recent"
+- "[category] absolutely not review amazon"
+- "[category] what is happening review walmart"
+- "[category] this product has seen things review"
 - "[category] review snippet current"
 - "site:amazon.com [category] reviews newest"
 - "site:walmart.com [category] reviews newest"
@@ -145,6 +148,8 @@ Adjust search terms based on the user's chosen tone:
 - **Neutral**: add phrases like "does the job", "as expected", "nothing special", "works fine"
 - **Negative**: add phrases like "waste of money", "cardboard", "broke immediately", "save yourself"
 - **Unhinged**: add phrases like "I did not expect", "absolutely not", "what is happening", "this product has seen things"
+
+When ranking results, keep at least one unhinged candidate in the final set if the search finds a good one, even if the user asked for a different tone.
 
 ---
 
@@ -211,6 +216,7 @@ When multiple candidates are available, prefer the set that:
 - Covers more categories
 - Mixes platforms instead of using only one retailer
 - Includes at least one non-obvious product
+- Includes at least one unhinged result if the candidate pool supports it
 - Has active listings with recent review activity
 - Avoids returning the same flagship examples unless the user explicitly requested them
 

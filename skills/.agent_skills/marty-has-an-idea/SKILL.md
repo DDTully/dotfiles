@@ -1,6 +1,6 @@
 ---
 name: marty-has-an-idea
-description: "Extract and document details from a product page or review URL. Ask the user what review tone to target: extremely positive, neutral, negative, or unhinged. Prefer the main product page and its review section, then fall back to the direct review URL if needed. Triggers: analyze this review, extract review details, document this review, save this review, marty has an idea"
+description: "Extract and document details from a product page or review URL. Ask the user what review tone to target: extremely positive, neutral, negative, or unhinged. Prefer the main product page and its review section, and always capture the full review text verbatim for downstream lyric writing. Fall back to the direct review URL if needed. Triggers: analyze this review, extract review details, document this review, save this review, marty has an idea"
 risk: low
 source: community
 date_added: "2026-04-12"
@@ -8,7 +8,7 @@ date_added: "2026-04-12"
 
 # Marty Has an Idea
 
-> Extract and document details from a product page or review URL.
+> Extract and document details from a product page or review URL, preserving full review text for later lyric writing.
 
 ---
 
@@ -88,8 +88,9 @@ If the user only provides a direct customer-review URL and it is blocked, derive
 
 ## Step 4: Extract Information
 
-From the fetched content, capture:
+From the fetched content, capture the full text verbatim whenever it is visible. Do not paraphrase or reduce a review to a short snippet if the complete text is available.
 
+Capture:
 | Field | Description |
 |-------|-------------|
 | Product Name | Full product name (main item title) |
@@ -100,6 +101,7 @@ From the fetched content, capture:
 | Review Count | Number of reviews |
 | Warning | Any safety warnings or important notices |
 | Review Snippet | The main review text or best visible snippet matching the selected tone |
+| Full Review Text | The complete review text copied verbatim, if visible |
 | Review Author | Reviewer name or "Amazon Customer" |
 | Review Date | When review was posted |
 | Review Rating | Stars given by reviewer |
@@ -118,7 +120,7 @@ Scan the product page for other reviews with different sentiment that may be int
 - Review snippets shown on the product page
 - Linked review pages reachable from the review summary
 
-If the user selected a tone, prioritize snippets that match that tone.
+If the user selected a tone, prioritize full review text that matches that tone. Keep the exact wording whenever it is visible, because the content may be reused later for lyric writing.
 
 ---
 
@@ -182,7 +184,7 @@ Write to `/home/tully/Sync/marty/`
 > **[Review Rating] stars** - *[Review Title]*
 
 *[Author]* - *[Date]*  
-*[Review Content]*
+*[Full Review Content, verbatim]*
 
 *Helpful: [X] people found this helpful*
 
