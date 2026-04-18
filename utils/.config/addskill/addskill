@@ -4,17 +4,18 @@ shopt -s inherit_errexit
 
 SCRIPT_NAME=$(basename "${BASH_SOURCE[0]}")
 readonly SCRIPT_NAME
-readonly VERSION="1.0.0"
+readonly VERSION="1.1.0"
 
-log()   { printf '[%s] %s\n'   "$(date '+%H:%M:%S')" "$*" >&2; }
+log() { printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$*" >&2; }
 error() { printf '[%s] ERROR %s\n' "$(date '+%H:%M:%S')" "$*" >&2; }
 
 usage() {
-    : "Print usage to stderr."
-    cat >&2 <<EOF
+  : "Print usage to stderr."
+  cat >&2 <<EOF
 Usage: $SCRIPT_NAME <src>
 
-Copies a skill to dotfiles/skills/.claude/skills and dotfiles/skills/.opencode/skills.
+Copies a skill into dotfiles/skills/.agent_skills and symlinks it into the Claude,
+OpenCode, and Agents folder structure.
 
 Args:
   src    Source skill directory
@@ -26,35 +27,53 @@ EOF
 }
 
 main() {
-    if (( $# == 0 )); then
-        error "Missing src argument"
-        usage
-        exit 1
-    fi
+  if (($# == 0)); then
+    error "Missing src argument"
+    usage
+    exit 1
+  fi
 
-    local src="$1"
-    local name
-    name=$(basename "$src")
-    local dotfiles_dir="$HOME/dotfiles"
-    local dest_claude="$dotfiles_dir/skills/.claude/skills/$name"
-    local dest_opencode="$dotfiles_dir/skills/.opencode/skills/$name"
+  local src="$1"
+  local name
+  name=$(basename "$src")
+  local dotfiles_dir="$HOME/dotfiles"
+  local skills_dir="$dotfiles_dir/skills"
+  local store_dir="$skills_dir/.agent_skills/$name"
+  local dest_claude="$skills_dir/.claude/skills/$name"
+  local dest_opencode="$skills_dir/.opencode/skills/$name"
+  local dest_agents="$skills_dir/.agents/skills/$name"
 
-    if [[ ! -d "$src" ]]; then
-        error "Not a directory: $src"
-        exit 1
-    fi
+  if [[ ! -d "$src" ]]; then
+    error "Not a directory: $src"
+    exit 1
+  fi
 
-    mkdir -p "$dotfiles_dir/skills/.claude/skills" "$dotfiles_dir/skills/.opencode/skills"
+  mkdir -p \
+    "$skills_dir/.agent_skills" \
+    "$skills_dir/.claude/skills" \
+    "$skills_dir/.opencode/skills" \
+    "$skills_dir/.agents/skills"
 
-    log "Copying $src -> $dest_claude"
-    rm -rf "$dest_claude"
-    cp -r "$src" "$dest_claude"
+  log "Copying $src -> $store_dir"
+  rm -rf "$store_dir"
+  cp -a "$src" "$store_dir"
 
-    log "Copying $src -> $dest_opencode"
-    rm -rf "$dest_opencode"
-    cp -r "$src" "$dest_opencode"
+  local link_target="../../.agent_skills/$name"
 
-    log "Done."
+  log "Linking $dest_claude -> $link_target"
+  rm -rf "$dest_claude"
+  ln -s "$link_target" "$dest_claude"
+
+  log "Linking $dest_opencode -> $link_target"
+  rm -rf "$dest_opencode"
+  ln -s "$link_target" "$dest_opencode"
+
+  log "Linking $dest_agents -> $link_target"
+  rm -rf "$dest_agents"
+  ln -s "$link_target" "$dest_agents"
+
+  log "Done."
 }
 
 main "$@"
+
