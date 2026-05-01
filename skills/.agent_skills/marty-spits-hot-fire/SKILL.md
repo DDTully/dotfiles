@@ -1,6 +1,6 @@
 ---
 name: marty-spits-hot-fire
-description: "Create lyrics from a markdown source file containing reviews or product details using lyric-writer, pronunciation-specialist, lyric-reviewer, and album-art-director skills. Ask one question at a time after the file is known: source type, then genre, then title before lyric creation. Suggest 3 title options when none is given, preserve any user-provided title exactly, save lyrics to markdown file with title as filename (underscores for spaces), and append song tags at the bottom. Use the exact user title verbatim; do not invent a new title. Prefer source files that contain full review text or full product details, and preserve that text verbatim for downstream lyric writing. Triggers: create lyrics from source, make song from text, write lyrics from markdown, product details to lyrics"
+description: "Create lyrics from a markdown source file containing reviews or product details using lyric-writer, pronunciation-specialist, lyric-reviewer, and album-art-director skills. Ask one question at a time after the file is known: source type, then genre, then title before lyric creation. Suggest 3 title options when none is given, preserve any user-provided title exactly, save lyrics to markdown file with title as filename (underscores for spaces), and append song tags plus source product tags at the bottom. Use the exact user title verbatim; do not invent a new title. After lyrics and QC are complete, derive a generic/ChatGPT album art prompt from the finished lyrics only. Prefer source files that contain full review text or full product details, and preserve that text verbatim for downstream lyric writing. Triggers: create lyrics from source, make song from text, write lyrics from markdown, product details to lyrics"
 risk: low
 source: community
 date_added: "2026-04-12"
@@ -71,9 +71,9 @@ Step 8: Run pronunciation-specialist to resolve phonetic risks
     ↓
 Step 9: Run lyric-reviewer to verify structure, pronunciation, and pacing
     ↓
-Step 10: Use album-art-director to draft album art direction
+Step 10: Use the finished lyrics to draft a generic/ChatGPT album art prompt
     ↓
-Step 11: Save to markdown file with title as filename and tags at bottom
+Step 11: Save to markdown file with title as filename, song tags, and source product tags at bottom
 ```
 
 ## Title Lock
@@ -188,14 +188,18 @@ This will:
 
 ## Step 7: Draft Album Art Direction
 
-If album art is needed for the output file, ask which AI art platform they use unless it is already specified, then use album-art-director principles to write a concise universal visual brief.
+Only draft album art after the final lyrics have been generated and pronunciation-specialist plus lyric-reviewer have completed. Do not ask which AI art platform the user uses.
+
+Use the finished lyrics as the primary inspiration for the visual direction. The source text may provide factual context, but the album art concept must be derived from the song's lyrical imagery, mood, title, genre, and recurring motifs rather than from the raw product/review details alone.
+
+Target only a generic/ChatGPT image prompt style. If using album-art-director principles, apply only its composition, thumbnail-safety, and visual-clarity guidance; do not follow its platform-selection workflow.
 
 Capture:
 
 - A 2-3 sentence concept description
-- The AI art platform to use
-- A platform-agnostic prompt that can be used in any image model
-- Negative prompt only when supported
+- The AI art platform as `Generic / ChatGPT`
+- A conversational prompt written for ChatGPT-style image generation
+- No negative prompt unless the user explicitly asks for one later
 - Square 1:1, thumbnail-safe, 3000x3000px minimum specs
 
 Keep the direction focused, low-clutter, and easy to read at small sizes.
@@ -210,6 +214,9 @@ Create a markdown file with:
 - Location: `/home/tully/Sync/marty/`
 - Title must match the user-provided title exactly when one exists.
 - Add a `## Tags` section at the bottom with 5-8 relevant hashtags for the song, written comma-separated on a single line.
+- Add a `## Source Product Tags` section after `## Tags` with 5-8 relevant hashtags describing the original product/source item, written comma-separated on a single line.
+- Tags must describe the song, source material, product, mood, genre, or lyrical themes. Do not include workflow, tool, model, platform, or generation tags such as `#suno`, `#ai`, `#chatgpt`, `#generated`, or skill names.
+- Source product tags must come from visible source facts such as product name, brand, category, material, size/count, retailer, and primary use case. Do not invent product claims.
 
 File structure:
 
@@ -231,10 +238,10 @@ File structure:
 
 ## Album Art
 
-**Platform:** [Selected AI art platform]
-**Concept:** [2-3 sentence visual direction based on album-art-director]
-**Prompt:** [Universal prompt]
-**Negative Prompt:** [If supported]
+**Platform:** Generic / ChatGPT
+**Concept:** [2-3 sentence visual direction derived from the finished lyrics]
+**Prompt:** [Conversational ChatGPT-style image prompt inspired by the lyrics]
+**Negative Prompt:** Not included by default
 **Specs:** Square 1:1, thumbnail-safe, 3000x3000px minimum
 
 ## Source Text
@@ -248,6 +255,10 @@ _Generated by Marty Spits Hot Fire skill_
 ## Tags
 
 #tag1, #tag2, #tag3, #tag4, #tag5
+
+## Source Product Tags
+
+#producttag1, #producttag2, #producttag3, #producttag4, #producttag5
 ```
 
 ---
@@ -266,6 +277,8 @@ The process ensures:
 8. Hook/worthy title emphasis
 9. Pronunciation-specialist and lyric-reviewer both completed; no unresolved homographs or QC gaps.
 10. Source type was prompted immediately after file selection, and title was prompted immediately after genre selection, with 3 suggestions when needed.
+11. Album art prompt is created only after lyrics and QC are complete, uses the finished lyrics as inspiration, and targets `Generic / ChatGPT` only.
+12. Song tags and source product tags are both included at the bottom, with product tags grounded in visible source facts and no workflow/tool/platform tags.
 
 ---
 
@@ -282,9 +295,10 @@ Summary:
 - Genre: [selected]
 - Title: [chosen title]
 - Title exact match: [yes/no]
-- Order: title, lyrics, prompt, album art, tags
+- Order: title, lyrics, prompt, album art, source text, song tags, source product tags
 - Sections: [verse/chorus/bridge count]
 - Tags: [comma-separated list of relevant hashtags]
+- Source product tags: [comma-separated list of product/source hashtags]
 ```
 
 ---
