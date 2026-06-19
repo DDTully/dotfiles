@@ -1,6 +1,6 @@
 ---
 name: marty-spits-hot-fire
-description: "Create lyrics from a markdown source file containing reviews or product details using lyric-writer, pronunciation-specialist, lyric-reviewer, and album-art-director skills. Ask one question at a time after the file is known: source type, then genre, then title before lyric creation. Suggest 3 title options when none is given, preserve any user-provided title exactly, save lyrics to markdown file with title as filename (underscores for spaces), and append song tags plus source product tags at the bottom. Use the exact user title verbatim; do not invent a new title. After lyrics and QC are complete, derive a generic/ChatGPT album art prompt from the finished lyrics only. Prefer source files that contain full review text or full product details, and preserve that text verbatim for downstream lyric writing. Triggers: create lyrics from source, make song from text, write lyrics from markdown, product details to lyrics"
+description: "Create lyrics from a markdown source file containing reviews, product details, or Wikipedia article details using lyric-writer, pronunciation-specialist, lyric-reviewer, and album-art-director skills. Ask one question at a time after the file is known: source type, then genre, then title before lyric creation. Suggest 3 title options when none is given, preserve any user-provided title exactly, save lyrics to markdown file with title as filename (underscores for spaces), and append song tags plus source tags at the bottom. Use the exact user title verbatim; do not invent a new title. After lyrics and QC are complete, derive a generic/ChatGPT album art prompt from the finished lyrics only. Prefer source files that contain full review text, full product details, or full article text, and preserve that text verbatim for downstream lyric writing. Triggers: create lyrics from source, make song from text, write lyrics from markdown, product details to lyrics, wikipedia article to lyrics"
 risk: low
 source: community
 date_added: "2026-04-12"
@@ -19,6 +19,7 @@ This skill is applicable when the user requests:
 - Creating lyrics from a source text/markdown file
 - Turning review text into lyrics
 - Turning product details into lyrics
+- Turning Wikipedia article details into lyrics
 - "Write lyrics from [source file]"
 - "Make a song from this text"
 - "Create lyrics using my notes"
@@ -32,6 +33,8 @@ This skill is applicable when the user requests:
 - "marty spits hot fire"
 - "turn text into lyrics"
 - "turn product details into lyrics"
+- "turn wikipedia article into lyrics"
+- "wikipedia article to lyrics"
 
 ---
 
@@ -55,7 +58,7 @@ This skill is applicable when the user requests:
 ```
 Step 1: Ask for source markdown file
     ↓
-Step 2: Ask what kind of data the file contains (review or product details)
+Step 2: Ask what kind of data the file contains (review, product details, or Wikipedia article)
     ↓
 Step 3: Ask for genre (with suggestions)
     ↓
@@ -73,7 +76,7 @@ Step 9: Run lyric-reviewer to verify structure, pronunciation, and pacing
     ↓
 Step 10: Use the finished lyrics to draft a generic/ChatGPT album art prompt
     ↓
-Step 11: Save to markdown file with title as filename, song tags, and source product tags at bottom
+Step 11: Save to markdown file with title as filename, song tags, and source tags at bottom
 ```
 
 ## Title Lock
@@ -101,12 +104,13 @@ If they provide a file path, validate it exists. If not, ask again.
 
 After the file path is known, ask:
 
-> Does this file contain a review or product details?
+> Does this file contain a review, product details, or a Wikipedia article?
 
 Use exactly one of these options unless the file clearly mixes both:
 
 - Review
 - Product Details
+- Wikipedia Article
 
 If the file mixes both, ask which one should be treated as the primary source.
 
@@ -144,6 +148,7 @@ If the user does not provide a title, continue after reading the source and sugg
 
 - For reviews: extract key themes, phrases, or emotional angles from the review text
 - For product details: pull out standout features, specs, use cases, or product imagery
+- For Wikipedia articles: pull out the topic, central conflict, chronology, names, places, vivid facts, and recurring article language
 - Create compelling, song-appropriate titles
 - Keep each under 60 characters for good song titles
 - Present exactly 3 options for the user to choose from
@@ -154,7 +159,7 @@ Use `question` tool for title selection if providing options.
 
 ## Step 5: Read Source File
 
-Use the `read` tool to extract content from the provided markdown file. Preserve full review text blocks or full product detail blocks verbatim; do not trim them down to short snippets when the source already contains the complete text.
+Use the `read` tool to extract content from the provided markdown file. Preserve full review text blocks, full product detail blocks, or full article text blocks verbatim; do not trim them down to short snippets when the source already contains the complete text.
 
 ---
 
@@ -170,7 +175,10 @@ When the source type is Review, prioritize the full review text sections over an
 
 When the source type is Product Details, prioritize the product description, feature bullets, spec tables, warnings, and use-case language over marketing fluff. Keep the original wording intact for lyric adaptation and do not invent claims not present in the source.
 
+When the source type is Wikipedia Article, prioritize the article title, lead summary, infobox facts, chronology, section headings, key entities, and vivid article phrasing. Keep factual claims grounded in the source, preserve notable wording where useful, and do not invent historical, biographical, scientific, or cultural details not present in the article.
+
 If the source came from Marty Has an Idea, use the extracted review sections as the review path.
+If the source came from Marty Has an Idea in Wikipedia Article mode, use the lead summary, infobox facts, article sections, and article text as the article path.
 
 Then immediately run pronunciation-specialist and lyric-reviewer before saving. Do not skip QC, even if the draft looks complete. The lyric-writer skill is mandatory; never generate lyrics without invoking it.
 
@@ -214,9 +222,9 @@ Create a markdown file with:
 - Location: `/home/tully/Sync/marty/`
 - Title must match the user-provided title exactly when one exists.
 - Add a `## Tags` section at the bottom with 5-8 relevant hashtags for the song, written comma-separated on a single line.
-- Add a `## Source Product Tags` section after `## Tags` with 5-8 relevant hashtags describing the original product/source item, written comma-separated on a single line.
+- Add a `## Source Tags` section after `## Tags` with 5-8 relevant hashtags describing the original product/source item or Wikipedia article topic, written comma-separated on a single line.
 - Tags must describe the song, source material, product, mood, genre, or lyrical themes. Do not include workflow, tool, model, platform, or generation tags such as `#suno`, `#ai`, `#chatgpt`, `#generated`, or skill names.
-- Source product tags must come from visible source facts such as product name, brand, category, material, size/count, retailer, and primary use case. Do not invent product claims.
+- Source tags must come from visible source facts such as product name, brand, category, material, size/count, retailer, primary use case, Wikipedia article title, article category, people, places, dates, events, works, organizations, or concepts. Do not invent claims.
 
 File structure:
 
@@ -225,7 +233,7 @@ File structure:
 
 **Genre:** [Selected Genre]
 **Source:** [Source File Path]
-**Source Type:** [Review / Product Details]
+**Source Type:** [Review / Product Details / Wikipedia Article]
 **Created:** [Timestamp]
 
 ## Lyrics
@@ -246,7 +254,7 @@ File structure:
 
 ## Source Text
 
-[Full source text or full review/product detail text from the markdown file, preserved verbatim when available]
+[Full source text or full review/product detail/article text from the markdown file, preserved verbatim when available]
 
 ---
 
@@ -256,7 +264,7 @@ _Generated by Marty Spits Hot Fire skill_
 
 #tag1, #tag2, #tag3, #tag4, #tag5
 
-## Source Product Tags
+## Source Tags
 
 #producttag1, #producttag2, #producttag3, #producttag4, #producttag5
 ```
@@ -278,7 +286,7 @@ The process ensures:
 9. Pronunciation-specialist and lyric-reviewer both completed; no unresolved homographs or QC gaps.
 10. Source type was prompted immediately after file selection, and title was prompted immediately after genre selection, with 3 suggestions when needed.
 11. Album art prompt is created only after lyrics and QC are complete, uses the finished lyrics as inspiration, and targets `Generic / ChatGPT` only.
-12. Song tags and source product tags are both included at the bottom, with product tags grounded in visible source facts and no workflow/tool/platform tags.
+12. Song tags and source tags are both included at the bottom, with source tags grounded in visible source facts and no workflow/tool/platform tags.
 
 ---
 
@@ -291,14 +299,14 @@ Done. File saved to: `/home/tully/Sync/marty/[song_title].md`
 
 Summary:
 - Source: [filename]
-- Source type: [review/product details]
+- Source type: [review/product details/Wikipedia article]
 - Genre: [selected]
 - Title: [chosen title]
 - Title exact match: [yes/no]
-- Order: title, lyrics, prompt, album art, source text, song tags, source product tags
+- Order: title, lyrics, prompt, album art, source text, song tags, source tags
 - Sections: [verse/chorus/bridge count]
 - Tags: [comma-separated list of relevant hashtags]
-- Source product tags: [comma-separated list of product/source hashtags]
+- Source tags: [comma-separated list of product/article/source hashtags]
 ```
 
 ---

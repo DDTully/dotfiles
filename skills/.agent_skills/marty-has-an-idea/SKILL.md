@@ -1,6 +1,6 @@
 ---
 name: marty-has-an-idea
-description: "Extract and document details from a product page, review URL, or product information request. Ask one clarifying question at a time, then collect the requested data from the main product page when possible. For review mode, ask which review tone to target: extremely positive, neutral, negative, or unhinged. For product information mode, collect all available product fields by default. Preserve full review text or product detail text verbatim for downstream lyric writing or reference. Triggers: analyze this review, extract review details, extract product details, collect product information, document this review, save this review, marty has an idea"
+description: "Extract and document details from a product page, review URL, product information request, or Wikipedia article. Ask one clarifying question at a time, then collect the requested data from the main product page or article when possible. For review mode, ask which review tone to target: extremely positive, neutral, negative, or unhinged. For product information mode, collect all available product fields by default. For Wikipedia article mode, capture article title, summary, infobox facts, section headings, key entities, categories, references, and article text. Preserve full review text, product detail text, or article text verbatim for downstream lyric writing or reference. Triggers: analyze this review, extract review details, extract product details, collect product information, extract wikipedia article, document this article, save this review, marty has an idea"
 risk: low
 source: community
 date_added: "2026-04-12"
@@ -8,7 +8,7 @@ date_added: "2026-04-12"
 
 # Marty Has an Idea
 
-> Extract and document details from a product page, review URL, or product information request, preserving verbatim source text for later use.
+> Extract and document details from a product page, review URL, product information request, or Wikipedia article, preserving verbatim source text for later use.
 
 ---
 
@@ -21,6 +21,7 @@ This skill is applicable when the user requests:
 - Capturing the main item name or key specs
 - Saving or documenting a review
 - Saving or documenting product information
+- Extracting, saving, or documenting a Wikipedia article
 - Framing extracted content as extremely positive, neutral, negative, or unhinged
 - "marty has an idea"
 
@@ -33,6 +34,9 @@ This skill is applicable when the user requests:
 - "save this review"
 - "document this review"
 - "document product info"
+- "extract wikipedia article"
+- "document this article"
+- "save this article"
 - "marty has an idea"
 
 ---
@@ -42,9 +46,9 @@ This skill is applicable when the user requests:
 ```
 Step 1: Ask one clarifying question at a time
     ↓
-Step 2: If needed, ask for the source URL / ASIN / product page
+Step 2: If needed, ask for the source URL / ASIN / product page / Wikipedia article
     ↓
-Step 3: Fetch the main product page when possible
+Step 3: Fetch the main product page or article when possible
     ↓
 Step 4: Extract the requested information verbatim
     ↓
@@ -60,8 +64,8 @@ Step 6: Write markdown file with shortened name
 Never bundle clarifying questions. Ask the smallest missing piece of information, wait for the reply, then continue.
 
 Suggested order:
-1. If the user did not already provide a source, ask for the product page, ASIN, or review URL.
-2. If the source is still ambiguous, ask exactly one mode question: "Review Details or Product Information?"
+1. If the user did not already provide a source, ask for the product page, ASIN, review URL, or Wikipedia article URL/title.
+2. If the source is still ambiguous, ask exactly one mode question: "Review Details, Product Information, or Wikipedia Article?"
 3. If Review Details is chosen, ask for the review tone: Extremely Positive, Neutral, Negative, or Unhinged.
 4. Only ask for purpose or output-format details if the user explicitly wants them.
 
@@ -76,27 +80,34 @@ Default to collecting everything visible, including name, brand, model, size, qu
 
 Only ask for a narrower focus if the user explicitly requests less than a full capture.
 
+### If Wikipedia Article is chosen
+Default to collecting everything visible and relevant, including article title, short description, lead summary, infobox facts, section headings, chronology, key people/places/events, categories, references, external links, and article text.
+
+Only ask for a narrower focus if the user explicitly requests less than a full capture.
+
 ---
 
 ## Step 2: Request URL
 
 If no source was provided, ask the user:
 
-> Please provide the product page, ASIN, or review URL you'd like me to analyze.
+> Please provide the product page, ASIN, review URL, or Wikipedia article you'd like me to analyze.
 
 ---
 
 ## Step 3: Fetch the Page
 
-Use `webfetch` to retrieve the main product page first when possible:
+Use `webfetch` to retrieve the main product page or Wikipedia article first when possible:
 
 ```
-webfetch(url: [product page or ASIN URL], format: markdown)
+webfetch(url: [product page, ASIN URL, or Wikipedia article URL], format: markdown)
 ```
 
 If the user only provides a direct customer-review URL and it is blocked, derive the ASIN from the URL and fetch the main product page instead.
 
 Prefer the main product page because it usually contains the richest product details, plus reviews and specs.
+
+For Wikipedia article titles without a URL, derive the canonical article URL when clear (`https://en.wikipedia.org/wiki/[Title_With_Underscores]`) and fetch that page. If the title is ambiguous, ask one clarifying question before fetching.
 
 ---
 
@@ -143,6 +154,22 @@ Capture:
 | Review Count | Number of reviews |
 | Full Product Text | Full product description or detail text copied verbatim, if visible |
 
+### Wikipedia Article Mode
+Capture:
+
+| Field | Description |
+|-------|-------------|
+| Article Title | Full Wikipedia article title |
+| Short Description | Visible short description or article type |
+| Lead Summary | Opening lead text copied verbatim when visible |
+| Infobox Facts | Key/value facts from the article infobox |
+| Sections | Section headings in article order |
+| Key Entities | People, places, dates, events, works, organizations, or concepts central to the article |
+| Categories | Visible Wikipedia categories |
+| References | Citation titles, URLs, or reference count when visible |
+| External Links | Visible external links when available |
+| Full Article Text | Full article text copied verbatim when available; otherwise preserve the richest available article text |
+
 ---
 
 ## Step 5: Find Supporting Details
@@ -175,6 +202,19 @@ Scan for additional product information and capture everything visible that help
 
 Capture all visible product details by default, not just a narrow subset.
 
+### Wikipedia Article Mode
+Scan for supporting article context and capture everything visible that helps complete the article profile:
+
+- Lead summary and short description
+- Infobox fields
+- Chronology, biography, plot, history, reception, legacy, or other major sections
+- Notable quotes only when present in the article text
+- Key dates, names, locations, works, events, and terminology
+- Categories, references, notes, bibliography, and external links
+- Redirect/disambiguation notes when visible
+
+Keep encyclopedic wording factual. Preserve article text verbatim where available, and do not add claims that are not present in the source.
+
 ---
 
 ## Step 6: Write Markdown File
@@ -187,10 +227,18 @@ Create a shortened product name:
 - Use underscores for spaces
 - Maximum 50 characters
 
+For Wikipedia articles, create a shortened article title:
+- Preserve the recognizable topic name
+- Remove parenthetical disambiguators only when they are not needed for clarity
+- Remove special characters
+- Use underscores for spaces
+- Maximum 50 characters
+
 Examples:
 - `OXO_Good_Grips_Upright_Sweep_Set`
 - `Happy_Belly_Cheese_Crackers`
 - `Westmark_Melon_Slicer`
+- `Battle_of_the_Emus`
 
 ```
 [shortened_name].md
@@ -326,6 +374,70 @@ Write to `/home/tully/Sync/marty/`
 *Extracted: [Timestamp]*
 ```
 
+### Template: Wikipedia Article Mode
+
+```markdown
+# [Article Title]
+
+**Source:** [URL]  
+**Extracted:** [Date]  
+**Mode:** Wikipedia Article  
+**Short Description:** [Visible short description]
+
+---
+
+## Article Details
+
+| Field | Value |
+|-------|-------|
+| Title | [Article Title] |
+| Short Description | [Short description] |
+| Key Entities | [People, places, dates, events, works, organizations, concepts] |
+| Categories | [Visible categories] |
+| References | [Reference count or notable references] |
+| External Links | [Visible external links] |
+
+---
+
+## Lead Summary
+
+*[Opening lead text, verbatim when visible]*
+
+---
+
+## Infobox Facts
+
+- [Field]: [Value]
+- [Field]: [Value]
+- [Field]: [Value]
+
+---
+
+## Article Sections
+
+- [Section heading 1]
+- [Section heading 2]
+- [Section heading 3]
+
+---
+
+## Article Text
+
+*[Full article text or richest available article text, verbatim when visible]*
+
+---
+
+## Source
+
+- URL: [Original URL]
+- Platform: Wikipedia
+- Selected fields: Full article capture
+
+---
+
+*Extracted: [Timestamp]*
+```
+
 ---
 
 ## Example Output Structure
@@ -333,12 +445,12 @@ Write to `/home/tully/Sync/marty/`
 After completing the task, output:
 
 ```
-Done. File saved to: `/home/tully/Sync/marty/[shortened_product_name].md`
+Done. File saved to: `/home/tully/Sync/marty/[shortened_source_name].md`
 
 Summary:
-- Product: [Full name]
-- Mode: [Review Details / Product Information]
-- Rating: [X.X]/5 stars
+- Source: [Product name or article title]
+- Mode: [Review Details / Product Information / Wikipedia Article]
+- Rating: [X.X]/5 stars, if applicable
 - Captured: [N]
 - Key takeaway: [Brief description]
 ```
