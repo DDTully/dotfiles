@@ -36,6 +36,7 @@ alias openshot='openshot_appimage >/dev/null 2>&1 & disown'
 alias ff='f() { rg -l -uu -i -F --no-messages "$*" | fzf --preview "bat --style=numbers --color=always {}" --bind "enter:execute($EDITOR {} )"; }; f'
 . "$HOME/.cargo/env"
 alias testme='uv run pytest --cov=src'
+alias karaoke='pikaraoke --headless --disable-bg-music --streaming-format mp4 --disable-score'
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm

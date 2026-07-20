@@ -130,7 +130,7 @@ __complete_dcrm() {
 __complete_dcsh() {
   local cur prev words want_all=0 container=""
   cur="${COMP_WORDS[COMP_CWORD]}"
-  prev="${COMP_WORDS[COMP_CWORD - 1]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
   words="${COMP_WORDS[*]}"
 
   for w in ${words}; do
@@ -241,6 +241,19 @@ cheat() {
   status=$?
   rm -f "$tmp"
   return $status
+}
+
+update() {
+  if command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get update &&
+      sudo apt-get full-upgrade -y &&
+      sudo apt-get autoremove -y
+  elif command -v pacman >/dev/null 2>&1; then
+    sudo pacman -Syu
+  else
+    echo "Unsupported Linux distribution." >&2
+    return 1
+  fi
 }
 
 complete -F _randomcode_completion randomcode
