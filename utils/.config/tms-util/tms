@@ -8,7 +8,7 @@ FZF_OPTS=(--layout=reverse --border --height=~40%)
 
 : "list herdr workspaces as tab-separated 'label\tworkspace_id' lines"
 list_workspaces() {
-  herdr workspace list --json | jq -r '.result.workspaces[] | "\(.label)\t\(.workspace_id)"'
+  herdr workspace list | jq -r '.result.workspaces[] | "\(.label)\t\(.workspace_id)"'
 }
 
 : "print the workspace_id for an exact label match, if any"

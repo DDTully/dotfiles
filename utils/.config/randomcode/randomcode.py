@@ -43,7 +43,7 @@ def herdr_json(args: Sequence[str]) -> dict[str, Any]:
 
 def workspace_id_for_label(label: str) -> str | None:
     """Return the id of the workspace with the given label, or None."""
-    workspaces = herdr_json(["workspace", "list", "--json"])["workspaces"]
+    workspaces = herdr_json(["workspace", "list"])["workspaces"]
     for ws in workspaces:
         if ws["label"] == label:
             return ws["workspace_id"]
@@ -120,7 +120,7 @@ def main() -> None:
     work_dir = WORKSPACE_ROOT / dir_name
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    label = f"Randomcode - {dir_name}"
+    label = dir_name
     existing_id = workspace_id_for_label(label)
     if existing_id is not None:
         # This process is already an attached herdr pane (nested `herdr` is
