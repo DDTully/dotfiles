@@ -1,6 +1,6 @@
 # Randomcode
 
-A tool to manage tmux sessions for projects in `~/Sync/randomcode`.
+A tool to manage herdr workspaces for projects in `~/Sync/randomcode`.
 
 ## Installation
 
@@ -21,7 +21,7 @@ uv run randomcode <directory>
 To enable tab completion for directory names, source the provided completion script in your shell configuration (e.g., `~/.bashrc` or `~/.bash_profile`).
 
 ```bash
-source /home/tully/dotfiles/utils/.config/randomcode/completion.bash
+source ~/.config/randomcode/completion.bash
 ```
 
 If you are using Zsh, you might need to enable bash completion support first or adapt the script.
