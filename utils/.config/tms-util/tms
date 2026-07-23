@@ -6,8 +6,18 @@ INSTALL_PATH="/usr/bin/tms"
 
 FZF_OPTS=(--layout=reverse --border --height=~40%)
 
-# select directory and create new session
-new_tmux_session() {
+: "list herdr workspaces as tab-separated 'label\tworkspace_id' lines"
+list_workspaces() {
+  herdr workspace list --json | jq -r '.result.workspaces[] | "\(.label)\t\(.workspace_id)"'
+}
+
+: "print the workspace_id for an exact label match, if any"
+workspace_id_for_label() {
+  list_workspaces | awk -F'\t' -v l="$1" '$1 == l { print $2; exit }'
+}
+
+: "select directory and open it as a new herdr workspace with editor/server/agent/working/ssh tabs"
+new_herdr_workspace() {
   selected=$(find "$BASE_DIRECTORY" -mindepth 1 -maxdepth 4 -type d \
     -not -path '*/.*' 2>/dev/null |
     fzf "${FZF_OPTS[@]}" --algo=v2 --prompt="New session: ")
@@ -22,86 +32,81 @@ new_tmux_session() {
   # resolve name collisions by appending an incrementing suffix
   base_name="$session_name"
   suffix=1
-  while tmux has-session -t "$session_name" 2>/dev/null; do
+  while [ -n "$(workspace_id_for_label "$session_name")" ]; do
     session_name="${base_name}-${suffix}"
     ((suffix++))
   done
 
-  tmux new-session -d -s "$session_name" -c "$session_path" -n "editor"
-  tmux send-keys -t "${session_name}:editor" "pact; nvim; clear" C-m
+  # this shell is already an attached herdr pane (nested `herdr` invocations
+  # are refused), so the whole layout is built over the socket API and the
+  # new workspace simply takes over the current view via --focus
+  created=$(herdr workspace create --cwd "$session_path" --label "$session_name" --focus)
+  workspace_id=$(jq -r '.result.workspace.workspace_id' <<<"$created")
+  editor_tab_id=$(jq -r '.result.tab.tab_id' <<<"$created")
+  editor_pane_id=$(jq -r '.result.root_pane.pane_id' <<<"$created")
+
+  # window 1: Editor (the workspace's initial tab/pane)
+  herdr tab rename "$editor_tab_id" "editor" >/dev/null
+  herdr pane run "$editor_pane_id" "pact; nvim; clear"
 
   # window 2: Server (plain shell)
-  tmux new-window -t "$session_name:" -c "$session_path" -n "server"
+  herdr tab create --workspace "$workspace_id" --cwd "$session_path" \
+    --label "server" --no-focus >/dev/null
 
-  # window 3: OpenCode
-  tmux new-window -t "$session_name:" -c "$session_path" -n "agent"
-  tmux send-keys -t "${session_name}:agent" "opencode" C-m
+  # window 3: Agent
+  agent=$(herdr tab create --workspace "$workspace_id" --cwd "$session_path" \
+    --label "agent" --no-focus)
+  agent_tab_id=$(jq -r '.result.tab.tab_id' <<<"$agent")
+  agent_pane_id=$(jq -r '.result.root_pane.pane_id' <<<"$agent")
+  herdr pane run "$agent_pane_id" "opencode"
 
   # window 4: Working (plain shell)
-  tmux new-window -t "$session_name:" -c "$session_path" -n "working"
+  herdr tab create --workspace "$workspace_id" --cwd "$session_path" \
+    --label "working" --no-focus >/dev/null
 
   # window 5: SSH (plain shell)
-  tmux new-window -t "$session_name:" -c "$session_path" -n "ssh"
+  herdr tab create --workspace "$workspace_id" --cwd "$session_path" \
+    --label "ssh" --no-focus >/dev/null
 
-  tmux select-window -t "${session_name}:agent"
-
-  if [ -n "${TMUX:-}" ]; then
-    tmux switch-client -t "$session_name"
-  else
-    tmux attach-session -t "$session_name"
-  fi
+  herdr tab focus "$agent_tab_id" >/dev/null
 }
 
-# select current running session and attach to it
-attach_tmux_session() {
-  if ! tmux list-sessions &>/dev/null; then
-    echo "No tmux sessions running"
+: "select an existing workspace and bring it into focus"
+attach_herdr_workspace() {
+  local rows label target_id
+
+  rows=$(list_workspaces)
+  if [ -z "$rows" ]; then
+    echo "No herdr workspaces running"
     return 1
   fi
 
-  session_name=$(tmux list-sessions -F "#{session_name}" |
-    fzf "${FZF_OPTS[@]}" --prompt="Select session: ")
-
-  if [ -z "$session_name" ]; then
+  label=$(cut -f1 <<<"$rows" | fzf "${FZF_OPTS[@]}" --prompt="Select session: ")
+  if [ -z "$label" ]; then
     return 1
   fi
+  target_id=$(workspace_id_for_label "$label")
 
-  if [ -n "${TMUX:-}" ]; then
-    tmux switch-client -t "$session_name"
-  else
-    tmux attach-session -t "$session_name"
-  fi
+  herdr workspace focus "$target_id"
 }
 
-# select current running session to kill
-kill_tmux_session() {
-  if ! tmux list-sessions &>/dev/null; then
+: "select a running workspace to close"
+kill_herdr_workspace() {
+  local rows label target_id
+
+  rows=$(list_workspaces)
+  if [ -z "$rows" ]; then
     return 1
   fi
 
-  session_name=$(tmux list-sessions -F "#{session_name}" |
-    fzf "${FZF_OPTS[@]}" --prompt="Kill session: ")
-
-  if [ -z "$session_name" ]; then
+  label=$(cut -f1 <<<"$rows" | fzf "${FZF_OPTS[@]}" --prompt="Kill session: ")
+  if [ -z "$label" ]; then
     return 1
   fi
+  target_id=$(workspace_id_for_label "$label")
 
-  tmux kill-session -t "$session_name"
-  echo "Killed session: $session_name"
-}
-
-# ctrl+b d — interactive detach
-detach_tmux_session() {
-  if [ -z "${TMUX:-}" ]; then
-    return 1
-  fi
-
-  current=$(tmux display-message -p '#S')
-  read -rp "Detach from \"${current}\"? [y/N] " choice
-  case "${choice,,}" in
-  y | yes) tmux detach-client ;;
-  *) return 1 ;;
-  esac
+  herdr workspace close "$target_id"
+  echo "Killed session: $label"
 }
 
 install() {
@@ -119,9 +124,9 @@ install() {
   fi
 }
 
-reload_tmux_config() {
-  tmux source-file ~/.tmux.conf
-  echo "tmux config reloaded"
+reload_herdr_config() {
+  herdr server reload-config
+  echo "herdr config reloaded"
 }
 
 main() {
@@ -130,23 +135,20 @@ main() {
   fi
 
   while true; do
-    choice=$(printf 'NEW\nATTACH\nDETACH\nKILL\nRELOAD CONFIG\nEXIT' |
-      fzf "${FZF_OPTS[@]}" --prompt="tmux session manager: ")
+    choice=$(printf 'NEW\nATTACH\nKILL\nRELOAD CONFIG\nEXIT' |
+      fzf "${FZF_OPTS[@]}" --prompt="herdr session manager: ")
     case $choice in
     "NEW")
-      new_tmux_session && break
+      new_herdr_workspace && break
       ;;
     "ATTACH")
-      attach_tmux_session && break
-      ;;
-    "DETACH")
-      detach_tmux_session && break
+      attach_herdr_workspace && break
       ;;
     "KILL")
-      kill_tmux_session
+      kill_herdr_workspace
       ;;
     "RELOAD CONFIG")
-      reload_tmux_config
+      reload_herdr_config
       ;;
     "EXIT" | "")
       break
