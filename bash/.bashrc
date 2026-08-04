@@ -12,7 +12,7 @@ export PATH=/usr/lib:$PATH
 
 # Generated for envman. Do not edit.
 [ -s "$HOME/.config/envman/load.sh" ] && source "$HOME/.config/envman/load.sh"
-. "$HOME/.local/share/../bin/env"
+[ -s "$HOME/.local/bin/env" ] && . "$HOME/.local/bin/env"
 export EDITOR="/opt/nvim-linux-x86_64/bin/nvim"
 
 # Utility functions
