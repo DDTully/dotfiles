@@ -6,17 +6,17 @@ Personal dotfiles and configuration managed with GNU Stow. Targets Debian/Ubuntu
 
 Each top-level directory is a Stow package that symlinks into `$HOME`:
 
-| Package   | Description                                      |
-|-----------|--------------------------------------------------|
-| `bash`    | Bash config, aliases, PATH setup                 |
-| `bat`     | `bat` (cat replacement) config                   |
-| `ghostty` | Ghostty terminal emulator config                 |
-| `nvim`    | Neovim config                                    |
-| `starship`| Starship cross-shell prompt                      |
-| `tmux`    | tmux config                                      |
-| `utils`   | Utility scripts: `ns` (network scanner), `fzftunes`, `randomcode` |
-| `yazi`    | Yazi terminal file manager config                |
-| `skills`  | Agent skill definitions for Claude and OpenCode  |
+| Package    | Description                                                       |
+| ---------- | ----------------------------------------------------------------- |
+| `bash`     | Bash config, aliases, PATH setup                                  |
+| `bat`      | `bat` (cat replacement) config                                    |
+| `ghostty`  | Ghostty terminal emulator config                                  |
+| `nvim`     | Neovim config                                                     |
+| `starship` | Starship cross-shell prompt                                       |
+| `tmux`     | tmux config                                                       |
+| `utils`    | Utility scripts: `ns` (network scanner), `fzftunes`, `randomcode` |
+| `yazi`     | Yazi terminal file manager config                                 |
+| `skills`   | Agent skill definitions for Claude and OpenCode                   |
 
 ## Requirements
 
@@ -47,6 +47,8 @@ stow -D -t $HOME bash
 # Restow (recreate/update)
 stow -R -t $HOME bash nvim tmux
 ```
+
+2026-08-04
 
 ## License
 
