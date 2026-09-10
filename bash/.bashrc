@@ -9,6 +9,7 @@ export PATH=$HOME/.config/tms-util:$PATH
 export PATH=$HOME/.config/addskill:$PATH
 export PATH=$HOME/.local/bin:$PATH
 export PATH=/usr/lib:$PATH
+export PATH=$HOME/.local/share/Steam/steamapps/common/Blender/:$PATH
 
 # Generated for envman. Do not edit.
 [ -s "$HOME/.config/envman/load.sh" ] && source "$HOME/.config/envman/load.sh"

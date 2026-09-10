@@ -1,3 +1,15 @@
+shipit() {
+  : "Stage changes, commit with the supplied message, then push."
+  if [[ $# -ne 1 || -z $1 ]]; then
+    printf 'Usage: shipit "commit message"\n' >&2
+    return 1
+  fi
+
+  git add . &&
+    git commit -m "$1" &&
+    git push
+}
+
 mkcd() {
   mkdir -p "$1" && cd "$1"
 }
