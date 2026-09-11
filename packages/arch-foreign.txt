@@ -1,6 +1,5 @@
 apidog-bin
 awakened-poe-trade-bin
-cinny-desktop-bin
 commet-bin
 docker-model-plugin
 google-chrome
