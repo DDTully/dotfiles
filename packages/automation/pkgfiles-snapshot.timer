@@ -1,0 +1,10 @@
+[Unit]
+Description=Keep reinstall manifests current while the user manager runs
+
+[Timer]
+OnStartupSec=1min
+OnUnitInactiveSec=1min
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

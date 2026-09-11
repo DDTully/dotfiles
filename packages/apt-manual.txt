@@ -1,0 +1,1 @@
+# Run pkgfiles snapshot on Debian/Ubuntu to populate this installed manual-package list.

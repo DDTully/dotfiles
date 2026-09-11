@@ -1,3 +1,11 @@
+pkgfiles() {
+  : "Compare packages and configs, snapshot reinstall lists, or preview restoration."
+  local helper
+  helper=$(readlink -f -- "${BASH_SOURCE[0]}") || return
+  helper="${helper%/bash/bashfuncs.sh}/utils/.config/pkgfiles/pkgfiles"
+  bash "$helper" "$@"
+}
+
 shipit() {
   : "Stage changes, commit with the supplied message, then push."
   if [[ $# -ne 1 || -z $1 ]]; then

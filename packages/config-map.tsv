@@ -1,0 +1,15 @@
+# distro package-name stow-package representative-path-under-HOME
+arch bash bash .bashrc
+arch bat bat .config/bat/config
+arch ghostty ghostty .config/ghostty/config
+arch neovim nvim .config/nvim/init.lua
+arch starship starship .config/starship.toml
+arch tmux tmux .tmux.conf
+arch yazi yazi .config/yazi/yazi.toml
+apt bash bash .bashrc
+apt bat bat .config/bat/config
+apt ghostty ghostty .config/ghostty/config
+apt neovim nvim .config/nvim/init.lua
+apt starship starship .config/starship.toml
+apt tmux tmux .tmux.conf
+apt yazi yazi .config/yazi/yazi.toml

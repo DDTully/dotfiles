@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+shopt -s inherit_errexit
+
+emit() {
+  : "Emit fixtures without invoking real package managers."
+  local line
+  while IFS= read -r line || [[ -n $line ]]; do printf '%s\n' "$line"; done < "$1"
+}
+
+tool=${0##*/}
+case $tool in
+  pacman)
+    [[ ${MOCK_FAIL:-} != "$1" ]] || { printf 'database failure\n' >&2; exit 1; }
+    case $1 in
+      -Qq) emit "$FIXTURES/all" ;;
+      -Qqen) emit "$FIXTURES/native" ;;
+      -Qqem)
+        [[ -s $FIXTURES/foreign ]] || exit 1
+        emit "$FIXTURES/foreign" ;;
+      *) printf '%s ' "$tool" "$@" >> "$FIXTURES/calls"; printf '\n' >> "$FIXTURES/calls" ;;
+    esac ;;
+  dpkg-query) [[ ${MOCK_FAIL:-} != dpkg ]] || exit 2; emit "$FIXTURES/dpkg" ;;
+  apt-mark) [[ ${MOCK_FAIL:-} != apt ]] || exit 2; emit "$FIXTURES/manual" ;;
+  sudo|apt-get|yay|paru|stow)
+    printf '%s ' "$tool" "$@" >> "$FIXTURES/calls"
+    printf '\n' >> "$FIXTURES/calls"
+    [[ ${MOCK_FAIL:-} != "$tool" ]] || exit 2 ;;
+  *) exit 99 ;;
+esac

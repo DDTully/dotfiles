@@ -1,0 +1,9 @@
+# Deliberate Stow selection. Edit before running pkgfiles stow --apply.
+bash
+bat
+ghostty
+nvim
+starship
+tmux
+yazi
+utils
