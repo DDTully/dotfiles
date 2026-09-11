@@ -33,6 +33,27 @@ reject() {
   fi
 }
 
+check_alignment() {
+  : "Check every TSV field starts in its table column on both distros."
+  local row=0 field prefix i
+  local -a table_lines=() fields=() starts=()
+  mapfile -t table_lines <<< "$2"
+  while IFS=$'\t' read -r -a fields; do
+    [[ ${#fields[@]} == 6 ]]
+    if ((row == 0)); then
+      for field in "${fields[@]}"; do
+        prefix=${table_lines[0]%%"$field"*}
+        starts+=("${#prefix}")
+      done
+    fi
+    for i in 0 1 2 3 4 5; do
+      [[ ${table_lines[row]:${starts[i]}:${#fields[i]}} == "${fields[i]}" ]]
+    done
+    if ((row == 0)); then row=2; else row=$((row + 1)); fi
+  done <<< "$1"
+  [[ ${#table_lines[@]} == "$row" ]]
+}
+
 printf 'neovim\nbash\nbat\ncustom-bin\nlibdependency\n' > "$FIXTURES/all"
 printf 'neovim\nbash\nbash\n' > "$FIXTURES/native"
 printf 'custom-bin\n' > "$FIXTURES/foreign"
@@ -40,11 +61,12 @@ ln -s "$PKGFILES_REPO/bash/.bashrc" "$HOME/.bashrc"
 ln -s "$PKGFILES_REPO/nvim/.config/nvim" "$HOME/.config/nvim"
 cp -a "$PKGFILES_REPO/bat/.config/bat" "$HOME/.config/bat"
 output=$(bash "$cli" compare)
-expect $'neovim\tyes\tnvim\tavailable\tlinked'
-expect $'bash\tyes\tbash\tavailable\tlinked'
-expect $'bat\tyes\tbat\tavailable\tunlinked'
-expect $'tmux\tno\ttmux\tmissing\tunlinked'
-expect $'libdependency\tyes\t-\tno mapping'
+expect $'neovim\tyes\texplicit\tnvim\tavailable\tlinked'
+expect $'bash\tyes\texplicit\tbash\tavailable\tlinked'
+expect $'custom-bin\tyes\texplicit\t-\tno mapping'
+expect $'bat\tyes\tdependency\tbat\tavailable\tunlinked'
+expect $'tmux\tno\t-\ttmux\tmissing\tunlinked'
+expect $'libdependency\tyes\tdependency\t-\tno mapping'
 baseline=$output
 output=$(bash "$cli" --tsv)
 [[ $output == "$baseline" ]]
@@ -54,23 +76,51 @@ output=$(bash "$cli" --table)
 expect 'PACKAGE'
 expect '-------'
 [[ $output != *$'\t'* && ! -e $FIXTURES/pager ]]
+check_alignment "$baseline" "$output"
 cp "$PKGFILES_REPO/packages/config-map.tsv" "$tmp/map"
 printf 'arch absent bat .config/bat/config\n' >> "$PKGFILES_REPO/packages/config-map.tsv"
 output=$(bash "$cli" --installed)
-expect $'libdependency\tyes\t-\tno mapping'
+expect $'libdependency\tyes\tdependency\t-\tno mapping'
 [[ $output != *$'\tno\t'* ]]
 output=$(bash "$cli" compare --configured)
-expect $'absent\tno\tbat\tavailable\tunlinked'
-expect $'bat\tyes\tbat\tavailable\tunlinked'
+expect $'absent\tno\t-\tbat\tavailable\tunlinked'
+expect $'bat\tyes\tdependency\tbat\tavailable\tunlinked'
 [[ $output != *missing* && $output != *'no mapping'* ]]
 output=$(bash "$cli" --installed --configured)
-expect $'bat\tyes\tbat\tavailable\tunlinked'
+expect $'bat\tyes\tdependency\tbat\tavailable\tunlinked'
 [[ $output != *absent* && $output != *missing* && $output != *'no mapping'* ]]
+for filter in --explicit --dependencies; do
+  output=$(bash "$cli" "$filter")
+  selection=$output
+  [[ $output != *$'\tno\t'* && $output != *absent* ]]
+  if [[ $filter == --explicit ]]; then
+    expect $'bash\tyes\texplicit'
+    expect $'neovim\tyes\texplicit'
+    expect $'custom-bin\tyes\texplicit'
+    [[ $output != *$'\tdependency\t'* ]]
+  else
+    expect $'bat\tyes\tdependency'
+    expect $'libdependency\tyes\tdependency'
+    [[ $output != *$'\texplicit\t'* ]]
+  fi
+  output=$(bash "$cli" --installed "$filter" "$filter")
+  [[ $output == "$selection" ]]
+  output=$(bash "$cli" "$filter" --configured --installed)
+  [[ $output != *absent* && $output != *missing* && $output != *'no mapping'* ]]
+  if [[ $filter == --explicit ]]; then expect $'bash\tyes\texplicit'; else expect $'bat\tyes\tdependency'; fi
+  selection=$output
+  output=$(bash "$cli" --installed --configured "$filter")
+  [[ $output == "$selection" ]]
+done
 printf 'arch absent missing .config/missing\n' > "$PKGFILES_REPO/packages/config-map.tsv"
 output=$(bash "$cli" --configured --installed)
-[[ $output == $'PACKAGE\tINSTALLED\tCONFIG\tREPO\tHOME PROBE' ]]
+[[ $output == $'PACKAGE\tINSTALLED\tREASON\tCONFIG\tREPO\tHOME PROBE' ]]
 output=$(bash "$cli" --configured --table)
-[[ $output == $'PACKAGE  INSTALLED  CONFIG  REPO  HOME PROBE\n-------  ---------  ------  ----  ----------' ]]
+[[ $output == $'PACKAGE  INSTALLED  REASON  CONFIG  REPO  HOME PROBE\n-------  ---------  ------  ------  ----  ----------' ]]
+for filter in --explicit --dependencies; do
+  output=$(bash "$cli" --configured "$filter")
+  [[ $output == $'PACKAGE\tINSTALLED\tREASON\tCONFIG\tREPO\tHOME PROBE' ]]
+done
 cp "$tmp/map" "$PKGFILES_REPO/packages/config-map.tsv"
 if command -v script >/dev/null; then
   printf -v terminal_command 'bash %q' "$cli"
@@ -99,7 +149,7 @@ if command -v script >/dev/null; then
 else
   printf 'SKIP: terminal pager tests require util-linux script\n' >&2
 fi
-for flag in --installed --configured --no-pager --tsv --table; do
+for flag in --installed --configured --explicit --dependencies --no-pager --tsv --table; do
   reject snapshot "$flag"
   reject restore "$flag"
   reject stow "$flag"
@@ -108,6 +158,9 @@ reject --unknown
 reject compare --unknown
 reject compare extra
 reject --table --tsv
+reject --explicit --dependencies
+[[ $(< "$tmp/err") == *'--explicit and --dependencies cannot be combined'* ]]
+reject --dependencies --explicit
 reject snapshot --apply
 bash "$cli" snapshot
 [[ $(< "$PKGFILES_REPO/packages/arch-native.txt") == $'bash\nneovim' ]]
@@ -149,6 +202,42 @@ fi
 export PKGFILES_DISTRO=apt
 printf 'bash\tinstalled\nlibfoo:amd64\tinstalled\nremoved\tconfig-files\ndep\tinstalled\n' > "$FIXTURES/dpkg"
 printf 'bash\nlibfoo\nremoved\nnot-installed\n' > "$FIXTURES/manual"
+printf 'apt absent bat .config/bat/config\napt dep bat .config/bat/config\n' >> "$PKGFILES_REPO/packages/config-map.tsv"
+output=$(bash "$cli" compare --tsv)
+expect $'bash\tyes\tmanual\tbash\tavailable\tlinked'
+expect $'libfoo\tyes\tmanual\t-\tno mapping'
+expect $'dep\tyes\tauto\tbat\tavailable\tunlinked'
+expect $'absent\tno\t-\tbat\tavailable\tunlinked'
+[[ $output != *removed* && $output != *not-installed* ]]
+baseline=$output
+output=$(bash "$cli" --table)
+[[ $output != *$'\t'* && ! -e $FIXTURES/pager ]]
+check_alignment "$baseline" "$output"
+for filter in --explicit --dependencies; do
+  output=$(bash "$cli" "$filter")
+  selection=$output
+  [[ $output != *$'\tno\t'* && $output != *absent* ]]
+  if [[ $filter == --explicit ]]; then
+    expect $'bash\tyes\tmanual'
+    expect $'libfoo\tyes\tmanual'
+    [[ $output != *$'\tauto\t'* ]]
+  else
+    expect $'dep\tyes\tauto'
+    [[ $output != *$'\tmanual\t'* ]]
+  fi
+  output=$(bash "$cli" "$filter" --installed)
+  [[ $output == "$selection" ]]
+  output=$(bash "$cli" --configured "$filter" --installed)
+  [[ $output != *absent* && $output != *missing* && $output != *'no mapping'* ]]
+  if [[ $filter == --explicit ]]; then expect $'bash\tyes\tmanual'; else expect $'dep\tyes\tauto'; fi
+  selection=$output
+  output=$(bash "$cli" "$filter" --installed --configured)
+  [[ $output == "$selection" ]]
+done
+reject --explicit --dependencies
+cp "$tmp/map" "$PKGFILES_REPO/packages/config-map.tsv"
+output=$(bash "$cli" --dependencies)
+expect $'dep\tyes\tauto\t-\tno mapping'
 bash "$cli" snapshot
 [[ $(< "$PKGFILES_REPO/packages/apt-manual.txt") == $'bash\nlibfoo:amd64' ]]
 [[ $(< "$PKGFILES_REPO/packages/arch-foreign.txt") == custom-bin ]]

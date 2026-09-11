@@ -87,12 +87,19 @@ run_command() {
 
 compare() {
   : "Compare all installed packages and mapped config probes, including folded links."
-  local os name config probe extra state available linked source target package
+  local os name config probe extra state available linked source target package file reason
+  local explicit=explicit dependency=dependency
+  [[ $distro == arch ]] || { explicit=manual; dependency=auto; }
   declare -A installed=() mapped=()
   while IFS= read -r name; do
-    [[ -n $name ]] && installed["${name%%:*}"]=1
+    [[ -n $name ]] && installed["${name%%:*}"]=$dependency
   done < "$tmp/all"
-  printf 'PACKAGE\tINSTALLED\tCONFIG\tREPO\tHOME PROBE\n'
+  for file in "${manifests[@]}"; do
+    while IFS= read -r name; do
+      [[ -n $name && ${installed[${name%%:*}]:-} ]] && installed["${name%%:*}"]=$explicit
+    done < "$tmp/$file"
+  done
+  printf 'PACKAGE\tINSTALLED\tREASON\tCONFIG\tREPO\tHOME PROBE\n'
   while read -r os name config probe extra; do
     [[ -z $os || $os == \#* ]] && continue
     [[ $os == arch || $os == apt ]] || die "Invalid mapping distro: $os"
@@ -101,6 +108,7 @@ compare() {
     mapped["$name"]=1
     state=no available=missing linked=unlinked
     [[ ${installed[$name]:-} ]] && state=yes
+    reason=${installed[$name]:--}
     if [[ -e $repo/$config/$probe ]]; then
       available=available
       source=$(readlink -f -- "$repo/$config/$probe")
@@ -108,36 +116,42 @@ compare() {
       [[ $source != "$target" ]] || linked=linked
     fi
     ((only_installed == 0)) || [[ $state == yes ]] || continue
+    [[ $reason_filter != explicit || $reason == "$explicit" ]] || continue
+    [[ $reason_filter != dependencies || $reason == "$dependency" ]] || continue
     ((only_configured == 0)) || [[ $available == available ]] || continue
-    printf '%s\t%s\t%s\t%s\t%s (%s)\n' "$name" "$state" "$config" "$available" "$linked" "$probe"
+    printf '%s\t%s\t%s\t%s\t%s\t%s (%s)\n' "$name" "$state" "$reason" "$config" "$available" "$linked" "$probe"
   done < "$data/config-map.tsv"
   for package in "${!installed[@]}"; do
     ((only_configured == 0)) || continue
     [[ ${mapped[$package]:-} ]] && continue
-    printf '%s\tyes\t-\tno mapping\t-\n' "$package"
+    reason=${installed[$package]}
+    [[ $reason_filter != explicit || $reason == "$explicit" ]] || continue
+    [[ $reason_filter != dependencies || $reason == "$dependency" ]] || continue
+    printf '%s\tyes\t%s\t-\tno mapping\t-\n' "$package" "$reason"
   done | sort
 }
 
 format_table() {
-  : "Align the five TSV columns using Bash only, retaining a header for empty results."
+  : "Align the six TSV columns using Bash only, retaining a header for empty results."
   local line i separator
-  local -a fields=() widths=(0 0 0 0 0)
+  local -a fields=() widths=(0 0 0 0 0 0)
   while IFS= read -r line; do
     IFS=$'\t' read -r -a fields <<< "$line"
-    for i in 0 1 2 3 4; do
+    for i in 0 1 2 3 4 5; do
       ((${#fields[i]} <= widths[i])) || widths[i]=${#fields[i]}
     done
   done < "$tmp/compare.tsv"
   while IFS= read -r line; do
     IFS=$'\t' read -r -a fields <<< "$line"
-    printf '%-*s  %-*s  %-*s  %-*s  %s\n' \
+    printf '%-*s  %-*s  %-*s  %-*s  %-*s  %s\n' \
       "${widths[0]}" "${fields[0]}" "${widths[1]}" "${fields[1]}" \
-      "${widths[2]}" "${fields[2]}" "${widths[3]}" "${fields[3]}" "${fields[4]}"
+      "${widths[2]}" "${fields[2]}" "${widths[3]}" "${fields[3]}" \
+      "${widths[4]}" "${fields[4]}" "${fields[5]}"
     if [[ ${fields[0]} == PACKAGE ]]; then
-      for i in 0 1 2 3 4; do
+      for i in 0 1 2 3 4 5; do
         printf -v separator '%*s' "${widths[i]}" ''
         printf '%s' "${separator// /-}"
-        if ((i < 4)); then printf '  '; else printf '\n'; fi
+        if ((i < 5)); then printf '  '; else printf '\n'; fi
       done
     fi
   done < "$tmp/compare.tsv"
@@ -145,15 +159,18 @@ format_table() {
 
 action=compare
 if [[ $# != 0 && $1 != -* ]]; then action=$1; shift; fi
-apply=0 only_installed=0 only_configured=0 no_pager=0 format=auto
+apply=0 only_installed=0 only_configured=0 no_pager=0 format=auto reason_filter=all
 while (($#)); do
   case $1 in
     --apply) apply=1 ;;
-    --installed|--configured|--no-pager|--tsv|--table)
+    --installed|--configured|--explicit|--dependencies|--no-pager|--tsv|--table)
       [[ $action == compare ]] || die "$1 is only valid for compare"
       case $1 in
         --installed) only_installed=1 ;;
         --configured) only_configured=1 ;;
+        --explicit|--dependencies)
+          [[ $reason_filter == all || $reason_filter == "${1#--}" ]] || die '--explicit and --dependencies cannot be combined'
+          reason_filter=${1#--} only_installed=1 ;;
         --no-pager) no_pager=1 ;;
         --tsv|--table)
           [[ $format == auto || $format == "${1#--}" ]] || die '--tsv and --table cannot be combined'
@@ -166,13 +183,15 @@ while (($#)); do
 done
 case $action in
   help|-h|--help)
-    printf '%s\n' 'pkgfiles [compare] [--installed] [--configured] [--no-pager] [--tsv|--table]' \
+    printf '%s\n' 'pkgfiles [compare] [--installed] [--configured] [--explicit|--dependencies] [--no-pager] [--tsv|--table]' \
       'pkgfiles snapshot|help' \
       'pkgfiles restore|stow [--apply]' \
       'compare: installed packages vs repository configs and HOME link probes (default)' \
       '  --installed: only installed packages (including dependencies)' \
       '  --configured: only mapped probes available in the repo, not necessarily linked' \
-      '  Both filters combine with AND; empty results retain the header.' \
+      '  --explicit/--dependencies: explicit/manual vs dependency/auto; mutually exclusive.' \
+      '  Both imply installed; all filters combine with AND; empty results retain the header.' \
+      '  REASON is - when not installed. Explicit/manual packages are not necessarily apps.' \
       '  Default: aligned terminal table, raw TSV when piped or redirected.' \
       '  --tsv/--table: force output format; --tsv also disables paging.' \
       '  Terminal output uses less -FRSX if available; --no-pager disables it.' \
