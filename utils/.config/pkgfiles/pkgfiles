@@ -214,8 +214,8 @@ if [[ $action == stow ]]; then
   configs=()
   load_list "$data/configs.txt" stow configs
   ((${#configs[@]})) || die 'No configs selected in configs.txt'
-  if ((apply)); then stow --simulate --verbose --dir="$repo" --target="$HOME" -- "${configs[@]}"; fi
-  run_command stow --verbose --dir="$repo" --target="$HOME" -- "${configs[@]}"
+  if ((apply)); then stow --simulate --verbose --dir="$repo" --target="$HOME" "${configs[@]}"; fi
+  run_command stow --verbose --dir="$repo" --target="$HOME" "${configs[@]}"
   exit 0
 fi
 

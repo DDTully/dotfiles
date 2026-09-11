@@ -3,6 +3,7 @@ set -Eeuo pipefail
 shopt -s inherit_errexit
 
 root=$(realpath "${BASH_SOURCE[0]%/*}/../..")
+bash "$root/packages/tests/stow.sh"
 tmp=$(mktemp -d /tmp/opencode/pkgfiles-test.XXXXXX)
 trap 'rm -rf -- "$tmp"' EXIT
 export PKGFILES_REPO="$tmp/repo with spaces" HOME="$tmp/home with spaces"
@@ -273,12 +274,15 @@ reject restore
 
 printf 'bash\nnvim\n' > "$PKGFILES_REPO/packages/configs.txt"
 output=$(bash "$cli" stow)
-expect '-- bash nvim'
+expect ' bash nvim'
+[[ $output != *' -- '* ]]
 [[ ! -e $FIXTURES/calls ]]
 bash "$cli" stow --apply
 output=$(< "$FIXTURES/calls")
 expect 'stow --simulate --verbose'
 expect 'stow --verbose'
+expect ' bash nvim'
+[[ $output != *' -- '* ]]
 rm "$FIXTURES/calls"
 export MOCK_FAIL=stow
 reject stow --apply

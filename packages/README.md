@@ -202,14 +202,20 @@ directories.
 
 ```bash
 bash packages/tests/test.sh
-shellcheck utils/.config/pkgfiles/pkgfiles packages/tests/{test.sh,mock-command}
+shellcheck utils/.config/pkgfiles/pkgfiles packages/tests/{test.sh,stow.sh,mock-command}
 bash -n bash/bashfuncs.sh
 bash -n utils/.config/pkgfiles/pkgfiles
+for file in packages/tests/{test.sh,stow.sh,mock-command}; do bash -n "$file"; done
 systemd-analyze --user verify packages/automation/pkgfiles-snapshot.{service,timer}
 ```
 
 Tests use isolated fixtures under `/tmp/opencode`, mocked package managers, sudo,
-AUR helpers, and Stow. They do not install packages or change actual HOME symlinks.
+AUR helpers, and Stow. Before adding mocks to PATH, the suite also runs real GNU
+Stow when installed (otherwise prints a skip). These integration tests cover
+preview, apply, repeated apply, conflict preservation, and manifest validation,
+including comments, blank lines, and a final line without a newline. Both HOME and
+the working directory are isolated so live `.stowrc` files are not loaded.
+Tests do not install packages or change actual HOME symlinks.
 Comparison tests cover both distros' reasons, filters, empty selections, six-column
 TSV/table alignment, and invalid
 options. Terminal paging tests use a mocked `less` and util-linux `script` when
