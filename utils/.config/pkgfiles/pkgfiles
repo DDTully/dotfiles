@@ -107,23 +107,75 @@ compare() {
       target=$(readlink -f -- "$HOME/$probe" || true)
       [[ $source != "$target" ]] || linked=linked
     fi
+    ((only_installed == 0)) || [[ $state == yes ]] || continue
+    ((only_configured == 0)) || [[ $available == available ]] || continue
     printf '%s\t%s\t%s\t%s\t%s (%s)\n' "$name" "$state" "$config" "$available" "$linked" "$probe"
   done < "$data/config-map.tsv"
   for package in "${!installed[@]}"; do
+    ((only_configured == 0)) || continue
     [[ ${mapped[$package]:-} ]] && continue
     printf '%s\tyes\t-\tno mapping\t-\n' "$package"
   done | sort
 }
 
-action=${1:-compare}
-[[ $# == 0 ]] || shift
-apply=0
-if [[ ${1:-} == --apply ]]; then apply=1; shift; fi
-[[ $# == 0 ]] || die 'Usage: pkgfiles [compare|snapshot|restore|stow|help] [--apply]'
+format_table() {
+  : "Align the five TSV columns using Bash only, retaining a header for empty results."
+  local line i separator
+  local -a fields=() widths=(0 0 0 0 0)
+  while IFS= read -r line; do
+    IFS=$'\t' read -r -a fields <<< "$line"
+    for i in 0 1 2 3 4; do
+      ((${#fields[i]} <= widths[i])) || widths[i]=${#fields[i]}
+    done
+  done < "$tmp/compare.tsv"
+  while IFS= read -r line; do
+    IFS=$'\t' read -r -a fields <<< "$line"
+    printf '%-*s  %-*s  %-*s  %-*s  %s\n' \
+      "${widths[0]}" "${fields[0]}" "${widths[1]}" "${fields[1]}" \
+      "${widths[2]}" "${fields[2]}" "${widths[3]}" "${fields[3]}" "${fields[4]}"
+    if [[ ${fields[0]} == PACKAGE ]]; then
+      for i in 0 1 2 3 4; do
+        printf -v separator '%*s' "${widths[i]}" ''
+        printf '%s' "${separator// /-}"
+        if ((i < 4)); then printf '  '; else printf '\n'; fi
+      done
+    fi
+  done < "$tmp/compare.tsv"
+}
+
+action=compare
+if [[ $# != 0 && $1 != -* ]]; then action=$1; shift; fi
+apply=0 only_installed=0 only_configured=0 no_pager=0 format=auto
+while (($#)); do
+  case $1 in
+    --apply) apply=1 ;;
+    --installed|--configured|--no-pager|--tsv|--table)
+      [[ $action == compare ]] || die "$1 is only valid for compare"
+      case $1 in
+        --installed) only_installed=1 ;;
+        --configured) only_configured=1 ;;
+        --no-pager) no_pager=1 ;;
+        --tsv|--table)
+          [[ $format == auto || $format == "${1#--}" ]] || die '--tsv and --table cannot be combined'
+          format=${1#--} ;;
+      esac ;;
+    -h|--help) action=help ;;
+    *) die "Unexpected argument: $1" ;;
+  esac
+  shift
+done
 case $action in
   help|-h|--help)
-    printf '%s\n' 'pkgfiles [compare|snapshot|restore|stow|help] [--apply]' \
+    printf '%s\n' 'pkgfiles [compare] [--installed] [--configured] [--no-pager] [--tsv|--table]' \
+      'pkgfiles snapshot|help' \
+      'pkgfiles restore|stow [--apply]' \
       'compare: installed packages vs repository configs and HOME link probes (default)' \
+      '  --installed: only installed packages (including dependencies)' \
+      '  --configured: only mapped probes available in the repo, not necessarily linked' \
+      '  Both filters combine with AND; empty results retain the header.' \
+      '  Default: aligned terminal table, raw TSV when piped or redirected.' \
+      '  --tsv/--table: force output format; --tsv also disables paging.' \
+      '  Terminal output uses less -FRSX if available; --no-pager disables it.' \
       'snapshot: replace this distro explicit-package manifests with current inventory' \
       'restore: print reinstall commands; --apply executes them' \
       'stow: print commands for configs.txt only; --apply simulates then stows' \
@@ -198,7 +250,20 @@ if [[ $action == snapshot ]]; then
 fi
 inventory
 if [[ $action == compare ]]; then
-  compare
+  compare > "$tmp/compare.tsv"
+  if [[ $format == auto ]]; then
+    if [[ -t 1 ]]; then format=table; else format=tsv; fi
+  fi
+  if [[ $format == table ]]; then
+    format_table > "$tmp/report"
+  else
+    cp -- "$tmp/compare.tsv" "$tmp/report"
+  fi
+  if [[ -t 0 && -t 1 && $format == table && $no_pager == 0 ]] && command -v less >/dev/null; then
+    less -FRSX < "$tmp/report"
+  else
+    while IFS= read -r line; do printf '%s\n' "$line"; done < "$tmp/report"
+  fi
 else
   for file in "${manifests[@]}"; do
     if ! cmp -s -- "$tmp/$file" "$data/$file"; then

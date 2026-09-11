@@ -67,6 +67,31 @@ most recent host's inventory to replace the previous one.
 
 ## Config Comparison
 
+```bash
+pkgfiles [compare] [--installed] [--configured] [--no-pager] [--tsv|--table]
+```
+
+On a terminal, comparisons use an aligned ASCII table. With terminal stdin and
+stdout, `less -FRSX` pages the report if installed (quit with `q`; long lines can
+be scrolled horizontally). Without `less`, the table prints directly. No new
+dependency is required, and `PAGER` is not used or evaluated. `--no-pager`
+disables paging without changing the format. Quitting the pager early is safe.
+
+Pipes and redirections retain the original raw TSV output, including its header,
+and never start a pager. `--tsv` forces TSV even on a terminal and disables paging;
+`--table` forces an aligned table even when redirected. These two flags cannot be
+combined. An empty selection still prints the header (and table separator).
+
+- `--installed`: only packages currently installed, including dependencies.
+- `--configured`: only mapping rows whose representative config probe exists in
+  the repository, **not necessarily linked in HOME**. It does not use `configs.txt`.
+- Both filters together use **AND**: installed packages with available repo probes.
+
+For example, `pkgfiles --installed --configured` shows installed apps with repo
+configs; `pkgfiles compare --configured --tsv > configs.tsv` exports all available
+mapped configs, including apps not installed. Filters and display options are
+valid only for comparison. Restore and Stow retain their existing `--apply` option.
+
 Edit `config-map.tsv` with whitespace-separated rows:
 
 ```text
@@ -175,6 +200,9 @@ systemd-analyze --user verify packages/automation/pkgfiles-snapshot.{service,tim
 
 Tests use isolated fixtures under `/tmp/opencode`, mocked package managers, sudo,
 AUR helpers, and Stow. They do not install packages or change actual HOME symlinks.
+Comparison tests cover filters, empty selections, TSV/table output, and invalid
+options. Terminal paging tests use a mocked `less` and util-linux `script` when
+available, including early quit and pager failure.
 
 References: [pacman manual](https://man.archlinux.org/man/pacman.8.en),
 [apt-mark manual](https://manpages.debian.org/stable/apt/apt-mark.8.en.html),

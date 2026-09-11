@@ -14,7 +14,7 @@ mkdir -p "$PKGFILES_REPO/utils/.config/pkgfiles"
 cp "$root/utils/.config/pkgfiles/pkgfiles" "$PKGFILES_REPO/utils/.config/pkgfiles/"
 cp "$root/packages/tests/mock-command" "$tmp/bin/mock-command"
 chmod +x "$tmp/bin/mock-command"
-for tool in pacman dpkg-query apt-mark sudo apt-get yay paru stow; do
+for tool in pacman dpkg-query apt-mark sudo apt-get yay paru stow less; do
   ln -s mock-command "$tmp/bin/$tool"
 done
 export PATH="$tmp/bin:$PATH"
@@ -45,6 +45,70 @@ expect $'bash\tyes\tbash\tavailable\tlinked'
 expect $'bat\tyes\tbat\tavailable\tunlinked'
 expect $'tmux\tno\ttmux\tmissing\tunlinked'
 expect $'libdependency\tyes\t-\tno mapping'
+baseline=$output
+output=$(bash "$cli" --tsv)
+[[ $output == "$baseline" ]]
+output=$(bash "$cli" --no-pager)
+[[ $output == "$baseline" && ! -e $FIXTURES/pager ]]
+output=$(bash "$cli" --table)
+expect 'PACKAGE'
+expect '-------'
+[[ $output != *$'\t'* && ! -e $FIXTURES/pager ]]
+cp "$PKGFILES_REPO/packages/config-map.tsv" "$tmp/map"
+printf 'arch absent bat .config/bat/config\n' >> "$PKGFILES_REPO/packages/config-map.tsv"
+output=$(bash "$cli" --installed)
+expect $'libdependency\tyes\t-\tno mapping'
+[[ $output != *$'\tno\t'* ]]
+output=$(bash "$cli" compare --configured)
+expect $'absent\tno\tbat\tavailable\tunlinked'
+expect $'bat\tyes\tbat\tavailable\tunlinked'
+[[ $output != *missing* && $output != *'no mapping'* ]]
+output=$(bash "$cli" --installed --configured)
+expect $'bat\tyes\tbat\tavailable\tunlinked'
+[[ $output != *absent* && $output != *missing* && $output != *'no mapping'* ]]
+printf 'arch absent missing .config/missing\n' > "$PKGFILES_REPO/packages/config-map.tsv"
+output=$(bash "$cli" --configured --installed)
+[[ $output == $'PACKAGE\tINSTALLED\tCONFIG\tREPO\tHOME PROBE' ]]
+output=$(bash "$cli" --configured --table)
+[[ $output == $'PACKAGE  INSTALLED  CONFIG  REPO  HOME PROBE\n-------  ---------  ------  ----  ----------' ]]
+cp "$tmp/map" "$PKGFILES_REPO/packages/config-map.tsv"
+if command -v script >/dev/null; then
+  printf -v terminal_command 'bash %q' "$cli"
+  output=$(script -qec "$terminal_command" /dev/null)
+  [[ $(< "$FIXTURES/pager") == '-FRSX' && $output != *$'\t'* ]]
+  rm "$FIXTURES/pager"
+  output=$(script -qec "$terminal_command --no-pager" /dev/null)
+  [[ ! -e $FIXTURES/pager && $output != *$'\t'* ]]
+  output=$(script -qec "$terminal_command --tsv" /dev/null)
+  [[ ! -e $FIXTURES/pager && $output == *$'\t'* ]]
+  MOCK_LESS_QUIT=1 script -qec "$terminal_command" /dev/null > "$tmp/out"
+  if MOCK_FAIL=less script -qec "$terminal_command" /dev/null > "$tmp/out"; then
+    printf 'Pager failure was hidden\n' >&2
+    exit 1
+  fi
+  rm "$FIXTURES/pager"
+  mkdir "$tmp/no-less"
+  for tool in bash readlink realpath mktemp sort rm cp pacman; do
+    ln -s "$(command -v "$tool")" "$tmp/no-less/$tool"
+  done
+  printf -v fallback_command 'PATH=%q bash %q' "$tmp/no-less" "$cli"
+  output=$(script -qec "$fallback_command" /dev/null)
+  expect 'PACKAGE'
+  expect '-------'
+  [[ ! -e $FIXTURES/pager && $output != *$'\t'* ]]
+else
+  printf 'SKIP: terminal pager tests require util-linux script\n' >&2
+fi
+for flag in --installed --configured --no-pager --tsv --table; do
+  reject snapshot "$flag"
+  reject restore "$flag"
+  reject stow "$flag"
+done
+reject --unknown
+reject compare --unknown
+reject compare extra
+reject --table --tsv
+reject snapshot --apply
 bash "$cli" snapshot
 [[ $(< "$PKGFILES_REPO/packages/arch-native.txt") == $'bash\nneovim' ]]
 [[ $(< "$PKGFILES_REPO/packages/arch-foreign.txt") == custom-bin ]]
