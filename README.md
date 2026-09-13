@@ -2,12 +2,12 @@
 
 Personal Bash, terminal, editor, and utility configuration managed with **GNU Stow**.
 The primary environment is Arch Linux (including CachyOS), Bash, and KDE on Wayland;
-package inventory and restore also support Debian/Ubuntu and their derivatives.
+config-driven app installation also supports Debian/Ubuntu and their derivatives.
 
 This is a working personal setup, not an unattended workstation installer. Stow
 links configuration into your home directory; it does not install applications.
-`pkgfiles` separately compares installed packages and config links, saves package
-inventories, and previews restoration. Machine-specific paths need review before use.
+`pkgfiles` lists linked configs and installs their apps with apt or pacman/yay.
+Machine-specific paths need review before use.
 
 ## Navigation
 
@@ -15,16 +15,15 @@ inventories, and previews restoration. Machine-specific paths need review before
 - [Before You Start](#before-you-start)
 - [Safe Setup](#safe-setup)
 - [Daily Use](#daily-use)
-- [Package Inventory](#package-inventory)
+- [Configured Apps](#configured-apps)
 - [Restore a Machine](#restore-a-machine)
-- [Automatic Snapshots](#automatic-snapshots)
 - [Utilities](#utilities)
 - [Backups and Portability](#backups-and-portability)
 - [Troubleshooting](#troubleshooting)
 - [Verification](#verification)
 
-For manifest formats, mapping rules, failure behavior, and implementation details,
-see the [package inventory guide](packages/README.md). Repository editing conventions
+For selection, mapping rules, and package-manager behavior,
+see the [configured apps guide](packages/README.md). Repository editing conventions
 are in [AGENTS.md](AGENTS.md).
 
 ## Package Catalog
@@ -38,15 +37,16 @@ directory rather than each file individually; both layouts are normal.
 | [`bash`](bash/) | `.bashrc`, `bashfuncs.sh` | Starship initialization, PATH, aliases, shell functions, completions |
 | [`bat`](bat/.config/bat/) | `.config/bat/` | Catppuccin Mocha default and four Catppuccin theme files |
 | [`ghostty`](ghostty/.config/ghostty/) | `.config/ghostty/` | Catppuccin Mocha, padding, clipboard and font-size bindings |
+| [`herdr`](herdr/.config/herdr/config.toml) | `.config/herdr/config.toml` | Disable onboarding; sort agent panels by spaces. Arch install uses AUR/yay; APT availability depends on configured sources. |
 | [`nvim`](nvim/.config/nvim/) | `.config/nvim/` | LazyVim via lazy.nvim, plugin overrides, Markdown/wiki tooling |
 | [`starship`](starship/.config/starship.toml) | `.config/starship.toml` | Shell prompt configuration |
 | [`tmux`](tmux/.tmux.conf) | `.tmux.conf` | Ctrl-Space prefix, pane/window bindings, Catppuccin, TPM plugins |
-| [`utils`](utils/.config/) | `.config/{addskill,mp4thumb,music,netscan,pkgfiles,randomcode,tms-util}/` | Local scripts and the package inventory helper |
+| [`utils`](utils/.config/) | `.config/{addskill,mp4thumb,music,netscan,pkgfiles,randomcode,tms-util}/` | Local scripts and the config-driven app installer |
 | [`yazi`](yazi/.config/yazi/yazi.toml) | `.config/yazi/yazi.toml` | Show hidden files |
 | [`skills`](skills/) | `.agent_skills/`, `.claude/skills/`, `.opencode/skills/`, `.agents/skills/` | Shared agent skill sources and client-facing links |
 
-**`packages/` is not a Stow package.** It holds inventories, config mappings, optional
-systemd units, documentation, and tests. Do not stow every top-level directory with
+**`packages/` is not a Stow package.** It holds the config selection and mappings,
+legacy inventory backups, documentation, and tests. Do not stow every top-level directory with
 a wildcard. The deliberate selection in [`packages/configs.txt`](packages/configs.txt)
 currently includes all packages above except `skills`.
 
@@ -75,12 +75,11 @@ Additional requirements depend on what you select:
 
 | Feature | Requirements and Caveats |
 | --- | --- |
-| `pkgfiles` | Bash 4.4+, GNU coreutils, the matching distro package manager; `flock` from util-linux for snapshots; optional `less` for paging |
+| `pkgfiles` | Bash 4.4+, GNU coreutils, apt-get/apt-cache or pacman; yay for apps only available in the AUR |
 | Bash setup | `starship` is called at startup; `eza` backs `ls`/`lt`; search helpers use `fzf`, `rg` (ripgrep), `bat`, and `$EDITOR` |
 | Neovim | A Neovim version compatible with current LazyVim, Git, and network access for plugin bootstrap; language tools depend on enabled plugins |
 | tmux | A recent tmux supporting the configured terminal options, Git/network access for TPM bootstrap, and a font with the configured glyphs |
 | Desktop helpers | KDE/Dolphin and Wayland-oriented tools where used; URI dispatch uses `xdg-open` |
-| Automatic inventories | A running systemd user manager; entirely optional |
 | Utilities | Separate dependencies listed [below](#utilities); stowing does not install them |
 
 Package names and binary names can differ by distribution. For example, Debian
@@ -109,9 +108,8 @@ startup should be treated as an offline, read-only configuration check.
 
 ## Safe Setup
 
-If you are rebuilding from saved package inventories, use [Restore a Machine](#restore-a-machine)
-first. **Do not snapshot or enable the timer on a fresh system before restoring:**
-that would replace your saved package list with the fresh system's inventory.
+For a fresh system, use [Restore a Machine](#restore-a-machine) to install apps from
+the saved config selection before linking their configs.
 
 ### Clone and Inspect
 
@@ -122,8 +120,8 @@ git status --short
 ```
 
 The examples below run from the repository root and always specify the target.
-The checkout can live elsewhere, but `addskill` and the supplied snapshot service
-assume `~/dotfiles`. Review selected configs and back up conflicting HOME files
+The checkout can live elsewhere, but `addskill` assumes `~/dotfiles`.
+Review selected configs and back up conflicting HOME files
 outside this repository before proceeding.
 
 ### Preview, Then Link
@@ -213,225 +211,54 @@ In tmux, the prefix is **Ctrl-Space**, not Ctrl-B. Prefix + `v` splits side by s
 `s` splits top/bottom, `w` opens the tree, and `r` reloads the config. Ghostty leaves
 Ctrl-Shift-Left/Right unbound for tmux window navigation; F11 toggles fullscreen.
 
-## Package Inventory
+## Configured Apps
 
-The helper can run before anything is stowed:
-
-```bash
-bash utils/.config/pkgfiles/pkgfiles help
-bash utils/.config/pkgfiles/pkgfiles compare
-```
-
-After sourcing the functions, the full command interface is:
-
-```text
-pkgfiles [compare] [--installed] [--configured] [--explicit|--dependencies] [--no-pager] [--tsv|--table]
-pkgfiles snapshot|help
-pkgfiles restore|stow [--apply]
-```
-
-| Command | Effect |
-| --- | --- |
-| `pkgfiles` or `pkgfiles compare` | Read-only comparison of installed packages and mapped config probes |
-| `pkgfiles snapshot` | Replace this distro's saved explicit/manual package lists with current inventory |
-| `pkgfiles restore` | Print shell-escaped package installation commands; execute nothing |
-| `pkgfiles restore --apply` | Install packages, keeping package-manager prompts |
-| `pkgfiles stow` | Print the Stow command for `packages/configs.txt`; not a conflict check |
-| `pkgfiles stow --apply` | Run a real Stow simulation first, then link only if it succeeds |
-
-No command commits or pushes. Reports/plans go to stdout, status/errors to stderr.
-Comparison and snapshots detect the distro from `/etc/os-release` (`ID`/`ID_LIKE`),
-not whichever package-manager executable happens to appear first.
-
-### Read the Report
-
-Columns are `PACKAGE`, `INSTALLED`, `REASON`, `CONFIG`, `REPO`, and `HOME PROBE`.
-
-- `REASON` is `explicit`/`dependency` on Arch, `manual`/`auto` on APT, or `-` if
-  absent. This is queried live, not read from saved manifests.
-- `available` means the representative config exists in this checkout.
-- `linked` means its HOME path resolves to that exact repository config. A regular
-  copy, a link to another checkout, or a missing/broken link is not equivalent.
-- `no mapping` is normal for packages without an entry in
-  [`config-map.tsv`](packages/config-map.tsv); it does not mean they need config.
-
-These are representative probes, **not an audit of every file**. `utils` and `skills`
-are not automatically compared as OS applications. Mappings, installed packages,
-and the desired Stow selection in `configs.txt` are three separate things.
-
-| Filter | Selects |
-| --- | --- |
-| `--installed` | Installed packages, including dependencies |
-| `--configured` | Mapped configs available in the repository, whether linked or installed or not |
-| `--explicit` | Installed explicit/manual packages, not necessarily applications |
-| `--dependencies` | Installed dependency/auto packages |
-
-Filters combine with **AND**. The two reason filters are mutually exclusive and
-imply `--installed`. Filter/display flags apply only to comparisons.
+After sourcing `bash/bashfuncs.sh`:
 
 ```bash
-pkgfiles --explicit --configured
-pkgfiles --dependencies --no-pager
-pkgfiles compare --configured --tsv > configs.tsv
-pkgfiles compare --table > package-report.txt
+pkgfiles                  # Show configs currently linked into this checkout
+pkgfiles install          # Check availability and preview install commands
+pkgfiles install --apply  # Install apps for those linked configs
 ```
 
-Terminal stdout defaults to an aligned ASCII table. With both stdin and stdout
-attached to a terminal, `less -FRSX` pages it if installed: `q` quits, and horizontal
-scrolling reveals long lines. `--no-pager` disables paging; `PAGER` is not evaluated.
-Pipes/redirections default to raw TSV with a header and no pager. `--tsv` forces TSV
-and disables paging; `--table` forces a table. They cannot be combined. Empty results
-still include a header.
+The mapped apps are Bash, bat, Ghostty, Neovim, Starship, tmux, and Yazi.
+`utils` and `skills` are explicitly skipped during installation because they do not
+correspond to single OS packages. Optional utility dependencies remain separate.
+The report checks representative config links, including folded directory links;
+copies and links to another checkout do not count. It does not inventory installed apps.
 
-### Saved Inventories
-
-| File | Snapshot Source |
-| --- | --- |
-| [`arch-native.txt`](packages/arch-native.txt) | `pacman -Qqen`: explicit packages in configured sync databases |
-| [`arch-foreign.txt`](packages/arch-foreign.txt) | `pacman -Qqem`: explicit foreign packages, including AUR and local builds |
-| [`apt-manual.txt`](packages/apt-manual.txt) | `apt-mark showmanual`, intersected with installed dpkg packages |
-| [`configs.txt`](packages/configs.txt) | Hand-maintained Stow selection; never generated by snapshot |
-
-The Arch lists were captured on CachyOS and include distribution-specific packages.
-The APT list is currently a commented placeholder, not a captured Debian workstation.
-These are package names, not version locks or a cross-distro translation.
-
-Snapshot updates only the current distro's inventories. Removed packages disappear
-on the next snapshot; dependencies are omitted unless marked explicit/manual.
-Unchanged files are not rewritten. Queries are gathered and validated before files
-are replaced, concurrent snapshots are locked, and each changed file is replaced
-atomically. The two Arch files are not an atomic pair in a power failure.
-
-Lists are per-distro, **not per-host**. Multiple same-distro machines writing a synced
-checkout will replace each other's inventory. Use separate copies or a deliberate
-host-specific workflow. See the [manifest guide](packages/README.md#manifests) for
-validation rules and `PKGFILES_REPO`, `PKGFILES_DISTRO`, and AUR-helper overrides.
+Arch uses configured pacman repositories first, then yay for AUR-only packages.
+APT uses candidate versions from the current release's configured sources.
+**Ghostty, Starship, and Yazi may be unavailable through APT on your release.**
+Unresolved apps are reported before package installation; check sources or edit the
+saved selection and use `--selected`. No third-party repositories are added.
+See [package-manager details](packages/README.md#package-managers).
 
 ## Restore a Machine
 
-### 1. Preserve the Source Inventory
-
-On the old system, finish package transactions, run `pkgfiles snapshot`, review
-`git diff -- packages/`, and back up the checkout and manifests. Preserve user data
-and credentials separately. A local snapshot is not automatically committed or
-copied off the machine.
-
-If automatic snapshots are already enabled, stop them **before replacing manifests
-with saved/edited desired lists**:
+Install Git and Stow, restore the checkout, and edit
+[`packages/configs.txt`](packages/configs.txt) for the configs you want. This saved
+selection works even before any HOME links exist:
 
 ```bash
-systemctl --user disable --now pkgfiles-snapshot.timer
-systemctl --user stop pkgfiles-snapshot.service
-```
-
-Do not run `snapshot` on the destination until package restoration is complete.
-
-### 2. Prepare the Destination
-
-Clone or restore the checkout on the matching distro family. Keep the timer disabled.
-Review the package lists for the destination release, configure required repositories
-and signing keys, and install Git/Stow as needed.
-
-Arch native restore uses `sudo pacman -Syu --needed` to avoid partial upgrades.
-Foreign restore uses `paru` if found, otherwise `yay`; select explicitly with
-`PKGFILES_AUR_HELPER=yay` or `paru`. Bootstrap the helper separately as a normal user.
-With foreign entries, apply checks for the helper and rejects root execution before
-native installs. Foreign packages may be local-only, removed, or renamed, not available
-from the AUR. Review them and recover custom builds separately.
-
-APT restore runs `sudo apt-get update` and `sudo apt-get install`. Recreate any
-third-party repositories, signing keys, pins, foreign architectures, and other package
-source settings yourself. Do not apply the CachyOS list blindly to stock Arch or
-assume an old Debian/Ubuntu package name still exists in a newer release.
-
-### 3. Preview and Install Packages
-
-From the repository root:
-
-```bash
-bash utils/.config/pkgfiles/pkgfiles restore
-```
-
-After reviewing the printed commands and prerequisites, deliberately apply:
-
-```bash
-bash utils/.config/pkgfiles/pkgfiles restore --apply
-```
-
-Run as your normal user; the helper invokes sudo where needed. Installs are not
-transactional: if a later step fails, earlier successful installs remain. A preview
-does not prove package availability. Do not set a mismatched `PKGFILES_DISTRO` when
-applying; that override is useful for testing or previewing another distro only.
-
-### 4. Restore Configuration
-
-Review `packages/configs.txt`, omit unwanted/unavailable applications, adjust personal
-paths, and back up existing HOME conflicts. Then:
-
-```bash
+bash utils/.config/pkgfiles/pkgfiles --selected
+bash utils/.config/pkgfiles/pkgfiles install --selected
+bash utils/.config/pkgfiles/pkgfiles install --selected --apply
 bash utils/.config/pkgfiles/pkgfiles stow
 bash utils/.config/pkgfiles/pkgfiles stow --apply
 ```
 
-The first command only prints a plan. The second simulates before linking and will
-not adopt or overwrite conflicting files. Only `configs.txt` is selected, never a
-wildcard; this does not install the snapshot timer.
+`--apply` retains package-manager prompts. Arch installs use a full system upgrade
+(`pacman -Syu --needed`); APT apply refreshes metadata before checking candidates.
+Install yay separately if an app needs the AUR. Stow apply simulates first and
+only links if the simulation succeeds. Review personal paths and back up HOME
+conflicts before linking.
 
-### 5. Confirm and Resume Tracking
-
-Run the comparison, check the apps you selected, and only then take a fresh snapshot:
-
-```bash
-bash utils/.config/pkgfiles/pkgfiles compare --configured --no-pager
-bash utils/.config/pkgfiles/pkgfiles snapshot
-git diff -- packages/
-```
-
-Enable automatic tracking only after the restored inventory is the state you want
-to preserve. The [detailed reinstall guide](packages/README.md#reinstall-workflow)
-describes additional package-manager limitations.
-
-## Automatic Snapshots
-
-The optional **unprivileged systemd user timer** refreshes inventories about once a
-minute while your user manager runs. It observes package-manager state, including
-GUI installs/removals and explicit/manual marking changes; there are no root hooks
-or shell-command interception. Nothing enables it automatically.
-
-On the original system after an initial snapshot, or after destination restoration
-is complete, run from the repository root:
-
-```bash
-mkdir -p "$HOME/.config/systemd/user"
-cp packages/automation/pkgfiles-snapshot.{service,timer} "$HOME/.config/systemd/user/"
-systemctl --user daemon-reload
-systemctl --user enable --now pkgfiles-snapshot.timer
-systemctl --user status pkgfiles-snapshot.timer
-journalctl --user -u pkgfiles-snapshot.service
-```
-
-Inspect/back up any existing units before copying. The service uses
-`/usr/bin/bash %h/dotfiles/utils/.config/pkgfiles/pkgfiles snapshot`. For a different
-checkout location, edit the installed service's `ExecStart` before reloading/enabling;
-see [path quoting rules](packages/README.md#automatic-updates). Do not use `sudo`.
-These units are copied, not stowed: later repository changes require deliberately
-updating the installed copies and running `daemon-reload` again.
-
-To pause tracking, disable the timer and stop any active snapshot service:
-
-```bash
-systemctl --user disable --now pkgfiles-snapshot.timer
-systemctl --user stop pkgfiles-snapshot.service
-```
-
-To resume with already-installed units after restoration, use
-`systemctl --user enable --now pkgfiles-snapshot.timer`.
-
-This is eventual refresh, not an immediate transaction hook. A query during a package
-transaction can observe an intermediate state; a later tick converges. Failed queries
-preserve saved inventories and retry on the next tick. Run a manual snapshot after
-transactions finish and before backup. Without systemd, use manual snapshots; there
-is no automatic fallback.
+`compare` and `restore` remain aliases for `list` and `install`, with the new
+config-based scope. Old inventories are retained as unused backups. Snapshots and
+the supplied timer units have been retired; `snapshot` is now a read-only no-op.
+If you installed the old timer elsewhere, follow the
+[retirement instructions](packages/README.md#retired-inventory-workflow).
 
 ## Utilities
 
@@ -457,13 +284,13 @@ The separate [`install-fzftunes`](utils/.config/music/install-fzftunes) script i
 mutating installer: it installs dependencies, configures MPD, attempts to enable its
 user service, and copies `fzftunes` to `~/.local/bin`. `--force-config` overwrites an
 existing MPD config. Inspect before running; its Arch branch currently uses
-`pacman -Sy`, unlike `pkgfiles restore`'s full-upgrade workflow, so it is not the
+`pacman -Sy`, unlike `pkgfiles install`'s full-upgrade workflow, so it is not the
 recommended general Arch bootstrap path. Copies in `~/.local/bin` do not automatically
 update when the source script changes.
 
 ## Backups and Portability
 
-The repository plus manifests are **not a complete machine backup**. Preserve these
+The repository and config selection are **not a complete machine backup**. Preserve these
 separately, using storage appropriate for sensitive data:
 
 - Documents, projects, media, wiki directories, databases, and application state.
@@ -486,14 +313,13 @@ Review `git status`, unstaged changes, and staged changes before every commit.
 | Symptom | What to Check |
 | --- | --- |
 | Stow reports a conflict | Compare the specific existing target with the source, back it up, and move only that target aside deliberately. Retry simulation; do not delete entire config directories or adopt blindly |
-| Config says `available` but `unlinked` | Check `readlink -f "$HOME/.config/nvim/init.lua"` (substitute the reported probe). A plain copy or another checkout is not a link to this repository |
+| A selected config says `unlinked` | Check `readlink -f "$HOME/.config/nvim/init.lua"` (substitute the mapped probe). A plain copy or another checkout is not a link to this repository |
 | `pkgfiles: command not found` | Source `bash/bashfuncs.sh`, or invoke `bash utils/.config/pkgfiles/pkgfiles ...` from the repo root; stowing `utils` alone does not define the function |
 | Shell startup reports missing commands/files | Review Starship, `~/.cargo/env`, `~/bashfuncs.sh`, and the hard-coded `EDITOR`. Install intended dependencies or adapt the config before reloading |
 | bat cannot find Catppuccin Mocha | After linking themes, run `bat cache --build` with the intended bat executable |
 | tmux status numbers/icons are missing | Check the untracked custom-number helper, font glyph coverage, terminal capabilities, and TPM installation |
-| Restore cannot find a package | Check distro/release, configured repositories and keys, renamed/removed packages, and foreign/local builds. Review the desired list rather than forcing unrelated removals or repositories |
-| Saved inventory suddenly shrank | Check whether a snapshot/timer ran on a minimal or different same-distro host. Stop writers before recovering the desired list from a backup or Git history |
-| Timer does not update lists | Check `systemctl --user status pkgfiles-snapshot.timer` and the service journal, the checkout path in `ExecStart`, and whether the user manager is running |
+| Install cannot find a package | Check distro/release and configured sources. Edit configs.txt and use `--selected` to omit unavailable apps; install them separately if needed |
+| No apps in scope on a fresh machine | Use `pkgfiles install --selected` to read configs.txt before HOME links exist |
 | Utility is absent from PATH | Check the utility table: music uses an explicit path or separate installer, randomcode uses an installed Python entry point, and shell functions require sourcing |
 
 ## Verification
@@ -505,15 +331,13 @@ mkdir -p /tmp/opencode
 bash packages/tests/test.sh
 ```
 
-The suite uses temporary repositories/HOMEs and mocked package managers, sudo, AUR
-helpers, and Stow. It also runs **real GNU Stow in temporary directories** when
-installed, otherwise reports a skip. Integration coverage includes preview, apply,
-repeat apply, conflict preservation, paths with spaces, and manifest validation.
-Comparison tests cover both distro families, install reasons, filters, TSV/table
-formatting, and errors. Pager tests use a mocked `less` and util-linux `script` when
-available. No packages are installed and no live HOME links are changed.
+The suite uses temporary repositories/HOMEs and mocked package managers and sudo.
+It also runs **real GNU Stow in temporary directories** when installed, otherwise
+reports a skip. Tests cover linked vs saved selections, package availability,
+APT and pacman/yay routing, failures, Stow conflicts, repeated apply, paths with
+spaces, and input validation. No packages are installed and no live HOME links change.
 
-Additional static checks, with ShellCheck and systemd tools installed:
+Additional static checks, with ShellCheck installed:
 
 ```bash
 bash -n bash/.bashrc
@@ -521,7 +345,6 @@ bash -n bash/bashfuncs.sh
 bash -n utils/.config/pkgfiles/pkgfiles
 for file in packages/tests/{test.sh,stow.sh,mock-command}; do bash -n "$file"; done
 shellcheck utils/.config/pkgfiles/pkgfiles packages/tests/{test.sh,stow.sh,mock-command}
-systemd-analyze --user verify packages/automation/pkgfiles-snapshot.{service,timer}
 git diff --check
 ```
 

@@ -1,5 +1,5 @@
 pkgfiles() {
-  : "Compare packages and configs, snapshot reinstall lists, or preview restoration."
+  : "List linked configs or install their apps with apt or pacman/yay."
   local helper
   helper=$(readlink -f -- "${BASH_SOURCE[0]}") || return
   helper="${helper%/bash/bashfuncs.sh}/utils/.config/pkgfiles/pkgfiles"

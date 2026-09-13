@@ -1,15 +1,13 @@
-# distro package-name stow-package representative-path-under-HOME
-arch bash bash .bashrc
-arch bat bat .config/bat/config
-arch ghostty ghostty .config/ghostty/config
-arch neovim nvim .config/nvim/init.lua
-arch starship starship .config/starship.toml
-arch tmux tmux .tmux.conf
-arch yazi yazi .config/yazi/yazi.toml
-apt bash bash .bashrc
-apt bat bat .config/bat/config
-apt ghostty ghostty .config/ghostty/config
-apt neovim nvim .config/nvim/init.lua
-apt starship starship .config/starship.toml
-apt tmux tmux .tmux.conf
-apt yazi yazi .config/yazi/yazi.toml
+# stow-package arch-package apt-package representative-path-under-HOME
+# Names are checked against this host's repositories, not historical inventories.
+# APT availability (especially ghostty, starship, yazi) depends on release/sources.
+bash bash bash .bashrc
+bat bat bat .config/bat/config
+ghostty ghostty ghostty .config/ghostty/config
+herdr herdr herdr .config/herdr/config.toml
+nvim neovim neovim .config/nvim/init.lua
+starship starship starship .config/starship.toml
+tmux tmux tmux .tmux.conf
+yazi yazi yazi .config/yazi/yazi.toml
+utils - - .config/pkgfiles/pkgfiles
+skills - - .agent_skills

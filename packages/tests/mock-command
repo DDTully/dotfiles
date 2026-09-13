@@ -2,34 +2,42 @@
 set -Eeuo pipefail
 shopt -s inherit_errexit
 
-emit() {
-  : "Emit fixtures without invoking real package managers."
-  local line
-  while IFS= read -r line || [[ -n $line ]]; do printf '%s\n' "$line"; done < "$1"
+contains() {
+  : "Look up an exact package in a whitespace-separated test fixture."
+  [[ " $1 " == *" $2 "* ]]
 }
 
 tool=${0##*/}
+printf '%s ' "$tool" "$@" >> "$FIXTURES/queries"
+printf '\n' >> "$FIXTURES/queries"
+[[ ${MOCK_FAIL:-} != "$tool" ]] || { printf 'database/command failure\n' >&2; exit 2; }
+package=${!#}
 case $tool in
-  less)
-    printf '%s\n' "$*" > "$FIXTURES/pager"
-    [[ ${MOCK_FAIL:-} != less ]] || exit 2
-    [[ ${MOCK_LESS_QUIT:-} != 1 ]] || exit 0
-    while IFS= read -r line; do printf '%s\n' "$line"; done ;;
   pacman)
-    [[ ${MOCK_FAIL:-} != "$1" ]] || { printf 'database failure\n' >&2; exit 1; }
-    case $1 in
-      -Qq) emit "$FIXTURES/all" ;;
-      -Qqen) emit "$FIXTURES/native" ;;
-      -Qqem)
-        [[ -s $FIXTURES/foreign ]] || exit 1
-        emit "$FIXTURES/foreign" ;;
-      *) printf '%s ' "$tool" "$@" >> "$FIXTURES/calls"; printf '\n' >> "$FIXTURES/calls" ;;
-    esac ;;
-  dpkg-query) [[ ${MOCK_FAIL:-} != dpkg ]] || exit 2; emit "$FIXTURES/dpkg" ;;
-  apt-mark) [[ ${MOCK_FAIL:-} != apt ]] || exit 2; emit "$FIXTURES/manual" ;;
-  sudo|apt-get|yay|paru|stow)
+    [[ $1 == -Si && $2 == -- ]] || exit 99
+    if ! contains "${MOCK_NATIVE:-}" "$package"; then
+      printf "error: package '%s' was not found\n" "$package" >&2
+      exit 1
+    fi ;;
+  yay)
+    if [[ $1 == -Si ]]; then
+      [[ $2 == --aur && $3 == -- ]] || exit 99
+      contains "${MOCK_AUR:-}" "$package" || { printf 'AUR package not found\n' >&2; exit 1; }
+    else
+      printf '%s ' "$tool" "$@" >> "$FIXTURES/calls"
+      printf '\n' >> "$FIXTURES/calls"
+    fi ;;
+  apt-cache)
+    [[ $1 == policy ]] || exit 99
+    if contains "${MOCK_NATIVE:-}" "$package"; then
+      printf '%s:\n  Installed: (none)\n  Candidate: 1.0\n' "$package"
+    elif [[ ${MOCK_EMPTY:-0} != 1 ]]; then
+      printf '%s:\n  Installed: (none)\n  Candidate: (none)\n' "$package"
+    fi ;;
+  sudo)
+    [[ $1 == pacman || $1 == apt-get ]] || exit 99
     printf '%s ' "$tool" "$@" >> "$FIXTURES/calls"
     printf '\n' >> "$FIXTURES/calls"
-    [[ ${MOCK_FAIL:-} != "$tool" ]] || exit 2 ;;
+    [[ ${MOCK_INSTALL_FAIL:-0} != 1 || $2 != install ]] || exit 2 ;;
   *) exit 99 ;;
 esac

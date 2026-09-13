@@ -4,79 +4,27 @@ shopt -s inherit_errexit
 export LC_ALL=C
 
 die() {
-  : "Report a failure without writing data to stdout."
+  : "Report an error and stop."
   printf 'pkgfiles: %s\n' "$*" >&2
   exit 1
 }
 
-validate_package() {
-  : "Reject options, version expressions, paths, and shell syntax in package lists."
-  [[ $1 =~ ^[a-zA-Z0-9][a-zA-Z0-9@._+-]*(:[a-zA-Z0-9_-]+)?$ ]] || die "Invalid package name: $1"
-}
-
-load_list() {
-  : "Read validated package names or Stow directory names into an array."
-  local file=$1 kind=$2 line
-  local -n result=$3
-  result=()
-  [[ -f $file ]] || die "Missing manifest: $file"
+load_selection() {
+  : "Read the deliberate selection used on fresh machines and by Stow."
+  local line
+  [[ -f $data/configs.txt ]] || die "Missing $data/configs.txt"
   while IFS= read -r line || [[ -n $line ]]; do
     [[ -z $line || $line == \#* ]] && continue
-    if [[ $kind == stow ]]; then
-      [[ $line =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ && -d $repo/$line ]] || die "Invalid Stow package: $line"
-    else
-      validate_package "$line"
-    fi
-    result+=("$line")
-  done < "$file"
-}
-
-pacman_query() {
-  : "Pacman returns 1 for an empty filtered query; do not hide diagnostics."
-  local status=0
-  pacman "$1" > "$tmp/query" 2> "$tmp/error" || status=$?
-  if ((status != 0)) && ! { ((status == 1)) && [[ ! -s $tmp/query && ! -s $tmp/error ]]; }; then
-    while IFS= read -r line; do printf '%s\n' "$line" >&2; done < "$tmp/error"
-    die "pacman $1 failed ($status)"
-  fi
-  while IFS= read -r line; do printf '%s\n' "$line"; done < "$tmp/query"
-}
-
-inventory() {
-  : "Collect all installed packages and separate explicit reinstall inventories."
-  local name status manual
-  if [[ $distro == arch ]]; then
-    pacman_query -Qq > "$tmp/all"
-    pacman_query -Qqen > "$tmp/arch-native.txt"
-    pacman_query -Qqem > "$tmp/arch-foreign.txt"
-  else
-    dpkg-query -W '-f=${binary:Package}\t${db:Status-Status}\n' > "$tmp/dpkg"
-    apt-mark showmanual > "$tmp/manual"
-    declare -A installed=() requested=()
-    while IFS=$'\t' read -r name status; do
-      [[ $status == installed ]] || continue
-      installed["$name"]=1
-      printf '%s\n' "$name" >> "$tmp/all"
-    done < "$tmp/dpkg"
-    while IFS= read -r manual; do
-      [[ -n $manual ]] || continue
-      requested["$manual"]=1
-    done < "$tmp/manual"
-    for name in "${!installed[@]}"; do
-      if [[ ${requested[$name]:-} || ${requested[${name%%:*}]:-} ]]; then
-        printf '%s\n' "$name" >> "$tmp/apt-manual.txt"
-      fi
-    done
-  fi
-  local file line
-  for file in all "${manifests[@]}"; do
-    sort -u -o "$tmp/$file" "$tmp/$file"
-    while IFS= read -r line; do validate_package "$line"; done < "$tmp/$file"
-  done
+    [[ $line =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ && -d $repo/$line ]] || die "Invalid Stow package: $line"
+    [[ ${wanted[$line]:-} ]] && continue
+    configs+=("$line")
+    wanted[$line]=1
+  done < "$data/configs.txt"
+  ((${#configs[@]})) || die 'No configs selected in configs.txt'
 }
 
 run_command() {
-  : "Print shell-escaped plans by default; execute only with --apply."
+  : "Print shell-escaped commands unless execution was explicitly requested."
   if ((apply)); then
     "$@"
   else
@@ -85,135 +33,128 @@ run_command() {
   fi
 }
 
-compare() {
-  : "Compare all installed packages and mapped config probes, including folded links."
-  local os name config probe extra state available linked source target package file reason
-  local explicit=explicit dependency=dependency
-  [[ $distro == arch ]] || { explicit=manual; dependency=auto; }
-  declare -A installed=() mapped=()
-  while IFS= read -r name; do
-    [[ -n $name ]] && installed["${name%%:*}"]=$dependency
-  done < "$tmp/all"
-  for file in "${manifests[@]}"; do
-    while IFS= read -r name; do
-      [[ -n $name && ${installed[${name%%:*}]:-} ]] && installed["${name%%:*}"]=$explicit
-    done < "$tmp/$file"
-  done
-  printf 'PACKAGE\tINSTALLED\tREASON\tCONFIG\tREPO\tHOME PROBE\n'
-  while read -r os name config probe extra; do
-    [[ -z $os || $os == \#* ]] && continue
-    [[ $os == arch || $os == apt ]] || die "Invalid mapping distro: $os"
-    [[ $name =~ ^[a-zA-Z0-9][a-zA-Z0-9@._+-]*$ && $config =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ && -n $probe && $probe != /* && /$probe/ != */../* && -z $extra ]] || die 'Invalid config mapping row'
-    [[ $os == "$distro" ]] || continue
-    mapped["$name"]=1
-    state=no available=missing linked=unlinked
-    [[ ${installed[$name]:-} ]] && state=yes
-    reason=${installed[$name]:--}
+load_apps() {
+  : "Select mapped apps by real HOME links, or by the saved config selection."
+  local config arch apt probe extra source target linked package
+  declare -A seen=()
+  [[ -f $data/config-map.tsv ]] || die "Missing $data/config-map.tsv"
+  [[ $action != list ]] || printf '%-12s %-12s %s\n' CONFIG PACKAGE LINK
+  while read -r config arch apt probe extra; do
+    [[ -z $config || $config == \#* ]] && continue
+    [[ $config =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ && -z $extra && -n $probe && $probe != /* && /$probe/ != */../* ]] || die 'Invalid config mapping row'
+    for package in "$arch" "$apt"; do
+      [[ $package == - || $package =~ ^[a-zA-Z0-9][a-zA-Z0-9@._+-]*$ ]] || die "Invalid package name: $package"
+    done
+    [[ ! ${seen[$config]:-} ]] || die "Duplicate config mapping: $config"
+    seen[$config]=1
+    linked=unlinked
     if [[ -e $repo/$config/$probe ]]; then
-      available=available
-      source=$(readlink -f -- "$repo/$config/$probe")
-      target=$(readlink -f -- "$HOME/$probe" || true)
+      source=$(realpath -e -- "$repo/$config/$probe")
+      target=$(realpath -e -- "$HOME/$probe" 2>/dev/null || true)
       [[ $source != "$target" ]] || linked=linked
     fi
-    ((only_installed == 0)) || [[ $state == yes ]] || continue
-    [[ $reason_filter != explicit || $reason == "$explicit" ]] || continue
-    [[ $reason_filter != dependencies || $reason == "$dependency" ]] || continue
-    ((only_configured == 0)) || [[ $available == available ]] || continue
-    printf '%s\t%s\t%s\t%s\t%s\t%s (%s)\n' "$name" "$state" "$reason" "$config" "$available" "$linked" "$probe"
-  done < "$data/config-map.tsv"
-  for package in "${!installed[@]}"; do
-    ((only_configured == 0)) || continue
-    [[ ${mapped[$package]:-} ]] && continue
-    reason=${installed[$package]}
-    [[ $reason_filter != explicit || $reason == "$explicit" ]] || continue
-    [[ $reason_filter != dependencies || $reason == "$dependency" ]] || continue
-    printf '%s\tyes\t%s\t-\tno mapping\t-\n' "$package" "$reason"
-  done | sort
-}
-
-format_table() {
-  : "Align the six TSV columns using Bash only, retaining a header for empty results."
-  local line i separator
-  local -a fields=() widths=(0 0 0 0 0 0)
-  while IFS= read -r line; do
-    IFS=$'\t' read -r -a fields <<< "$line"
-    for i in 0 1 2 3 4 5; do
-      ((${#fields[i]} <= widths[i])) || widths[i]=${#fields[i]}
-    done
-  done < "$tmp/compare.tsv"
-  while IFS= read -r line; do
-    IFS=$'\t' read -r -a fields <<< "$line"
-    printf '%-*s  %-*s  %-*s  %-*s  %-*s  %s\n' \
-      "${widths[0]}" "${fields[0]}" "${widths[1]}" "${fields[1]}" \
-      "${widths[2]}" "${fields[2]}" "${widths[3]}" "${fields[3]}" \
-      "${widths[4]}" "${fields[4]}" "${fields[5]}"
-    if [[ ${fields[0]} == PACKAGE ]]; then
-      for i in 0 1 2 3 4 5; do
-        printf -v separator '%*s' "${widths[i]}" ''
-        printf '%s' "${separator// /-}"
-        if ((i < 5)); then printf '  '; else printf '\n'; fi
-      done
+    if ((selected)); then
+      [[ ${wanted[$config]:-} ]] || continue
+      [[ -e $repo/$config/$probe ]] || die "Missing config probe: $config/$probe"
+    else
+      [[ $linked == linked ]] || continue
     fi
-  done < "$tmp/compare.tsv"
+    package=$arch
+    [[ $distro != apt ]] || package=$apt
+    if [[ $action == list ]]; then
+      printf '%-12s %-12s %s\n' "$config" "$package" "$linked"
+    elif [[ $package == - ]]; then
+      printf 'pkgfiles: skipping %s (no OS package mapped)\n' "$config" >&2
+    else
+      apps+=("$package")
+    fi
+  done < "$data/config-map.tsv"
+  for config in "${configs[@]}"; do
+    [[ ${seen[$config]:-} ]] || die "No mapping for selected config: $config"
+  done
 }
 
-action=compare
+resolve_apps() {
+  : "Check configured repositories before installing; collect all missing packages."
+  local package info line candidate missing=0
+  declare -A seen=()
+  for package in "${apps[@]}"; do
+    [[ ${seen[$package]:-} ]] && continue
+    seen[$package]=1
+    if [[ $distro == apt ]]; then
+      info=$(apt-cache policy "$package") || die "apt-cache query failed: $package"
+      candidate=
+      while IFS= read -r line; do
+        if [[ $line =~ ^[[:space:]]*Candidate:[[:space:]]+([^[:space:]]+) ]]; then
+          candidate=${BASH_REMATCH[1]}
+        fi
+      done <<< "$info"
+      if [[ -n $candidate && $candidate != '(none)' ]]; then
+        native+=("$package")
+        continue
+      fi
+      printf 'pkgfiles: %s has no APT candidate; check this release and its sources (sudo apt-get update), or omit its config from configs.txt and use --selected.\n' "$package" >&2
+    else
+      if info=$(pacman -Si -- "$package" 2>&1); then
+        native+=("$package")
+        continue
+      fi
+      [[ $info == "error: package '$package' was not found" ]] || die "pacman query failed: $info"
+      if command -v yay >/dev/null; then
+        if info=$(yay -Si --aur -- "$package" 2>&1); then
+          aur+=("$package")
+          continue
+        fi
+        printf 'pkgfiles: yay could not resolve %s: %s\n' "$package" "$info" >&2
+      else
+        printf 'pkgfiles: %s is absent from pacman repositories; install yay separately to check the AUR.\n' "$package" >&2
+      fi
+    fi
+    missing=1
+  done
+  ((missing == 0)) || die 'Unresolved packages; no packages were installed.'
+}
+
+action=list apply=0 selected=0
 if [[ $# != 0 && $1 != -* ]]; then action=$1; shift; fi
-apply=0 only_installed=0 only_configured=0 no_pager=0 format=auto reason_filter=all
 while (($#)); do
   case $1 in
     --apply) apply=1 ;;
-    --installed|--configured|--explicit|--dependencies|--no-pager|--tsv|--table)
-      [[ $action == compare ]] || die "$1 is only valid for compare"
-      case $1 in
-        --installed) only_installed=1 ;;
-        --configured) only_configured=1 ;;
-        --explicit|--dependencies)
-          [[ $reason_filter == all || $reason_filter == "${1#--}" ]] || die '--explicit and --dependencies cannot be combined'
-          reason_filter=${1#--} only_installed=1 ;;
-        --no-pager) no_pager=1 ;;
-        --tsv|--table)
-          [[ $format == auto || $format == "${1#--}" ]] || die '--tsv and --table cannot be combined'
-          format=${1#--} ;;
-      esac ;;
+    --selected) selected=1 ;;
     -h|--help) action=help ;;
     *) die "Unexpected argument: $1" ;;
   esac
   shift
 done
 case $action in
-  help|-h|--help)
-    printf '%s\n' 'pkgfiles [compare] [--installed] [--configured] [--explicit|--dependencies] [--no-pager] [--tsv|--table]' \
-      'pkgfiles snapshot|help' \
-      'pkgfiles restore|stow [--apply]' \
-      'compare: installed packages vs repository configs and HOME link probes (default)' \
-      '  --installed: only installed packages (including dependencies)' \
-      '  --configured: only mapped probes available in the repo, not necessarily linked' \
-      '  --explicit/--dependencies: explicit/manual vs dependency/auto; mutually exclusive.' \
-      '  Both imply installed; all filters combine with AND; empty results retain the header.' \
-      '  REASON is - when not installed. Explicit/manual packages are not necessarily apps.' \
-      '  Default: aligned terminal table, raw TSV when piped or redirected.' \
-      '  --tsv/--table: force output format; --tsv also disables paging.' \
-      '  Terminal output uses less -FRSX if available; --no-pager disables it.' \
-      'snapshot: replace this distro explicit-package manifests with current inventory' \
-      'restore: print reinstall commands; --apply executes them' \
-      'stow: print commands for configs.txt only; --apply simulates then stows' \
-      'Environment: PKGFILES_REPO, PKGFILES_DISTRO=arch|apt, PKGFILES_AUR_HELPER=yay|paru'
+  help)
+    printf '%s\n' 'pkgfiles [list] [--selected]' \
+      'pkgfiles install [--selected] [--apply]' \
+      'pkgfiles stow [--apply]' \
+      'Default scope: configs linked from HOME into this checkout.' \
+      '--selected: use packages/configs.txt instead, including on a fresh machine.' \
+      'install previews apt-get or pacman/yay commands; --apply executes them.' \
+      'stow always uses configs.txt and simulates before applying.' \
+      'compare and restore are aliases for list and install.' \
+      'Environment: PKGFILES_REPO, PKGFILES_DISTRO=arch|apt (testing override).'
     exit 0 ;;
-  compare|snapshot|restore|stow) ;;
+  snapshot)
+    printf 'pkgfiles: snapshots are retired; disable the old pkgfiles-snapshot.timer. No files changed.\n' >&2
+    exit 0 ;;
+  compare) action=list ;;
+  restore) action=install ;;
+  list|install|stow) ;;
   *) die "Unknown command: $action" ;;
 esac
-[[ $apply == 0 || $action == restore || $action == stow ]] || die '--apply is only valid for restore or stow'
+[[ $apply == 0 || $action != list ]] || die '--apply is only valid for install or stow'
+[[ $selected == 0 || $action != stow ]] || die 'stow already uses configs.txt'
 script=$(readlink -f -- "${BASH_SOURCE[0]}")
-repo=${PKGFILES_REPO:-${script%/utils/.config/pkgfiles/pkgfiles}}
-repo=$(realpath -e -- "$repo")
+repo=$(realpath -e -- "${PKGFILES_REPO:-${script%/utils/.config/pkgfiles/pkgfiles}}")
 data=$repo/packages
-[[ -d $data ]] || die "Missing inventory directory: $data"
-
+configs=() apps=() native=() aur=()
+declare -A wanted=()
+if ((selected)) || [[ $action == stow ]]; then load_selection; fi
 if [[ $action == stow ]]; then
-  configs=()
-  load_list "$data/configs.txt" stow configs
-  ((${#configs[@]})) || die 'No configs selected in configs.txt'
   if ((apply)); then stow --simulate --verbose --dir="$repo" --target="$HOME" "${configs[@]}"; fi
   run_command stow --verbose --dir="$repo" --target="$HOME" "${configs[@]}"
   exit 0
@@ -228,69 +169,19 @@ if [[ -z $distro ]]; then
     *) die "Unsupported distribution: $distro_ids" ;;
   esac
 fi
-case $distro in
-  arch) manifests=(arch-native.txt arch-foreign.txt) ;;
-  apt) manifests=(apt-manual.txt) ;;
-  *) die "Unsupported distribution: $distro" ;;
-esac
-
-if [[ $action == restore ]]; then
-  native=()
-  load_list "$data/${manifests[0]}" package native
-  foreign=()
-  helper=${PKGFILES_AUR_HELPER:-}
-  if [[ $distro == arch ]]; then
-    load_list "$data/arch-foreign.txt" package foreign
-    if ((${#foreign[@]})); then
-      if [[ -z $helper ]]; then
-        if command -v paru >/dev/null; then helper=paru; else helper=yay; fi
-      fi
-      [[ $helper == yay || $helper == paru ]] || die 'AUR helper must be yay or paru'
-      if ((apply)); then
-        ((EUID != 0)) || die 'Run AUR restoration as a normal user, never root'
-        command -v "$helper" >/dev/null || die "Install $helper first, or review arch-foreign.txt"
-      fi
-    fi
-    if ((${#native[@]})); then run_command sudo pacman -Syu --needed -- "${native[@]}"; fi
-    if ((${#foreign[@]})); then run_command "$helper" -S --needed -- "${foreign[@]}"; fi
-  elif ((${#native[@]})); then
-    run_command sudo apt-get update
-    run_command sudo apt-get install -- "${native[@]}"
-  fi
-  exit 0
-fi
-
-tmp=$(mktemp -d)
-trap 'rm -rf -- "$tmp"' EXIT
-for file in all "${manifests[@]}"; do : > "$tmp/$file"; done
-if [[ $action == snapshot ]]; then
-  exec 9> "$data/.snapshot.lock"
-  flock -n 9 || die 'Another snapshot is running'
-fi
-inventory
-if [[ $action == compare ]]; then
-  compare > "$tmp/compare.tsv"
-  if [[ $format == auto ]]; then
-    if [[ -t 1 ]]; then format=table; else format=tsv; fi
-  fi
-  if [[ $format == table ]]; then
-    format_table > "$tmp/report"
-  else
-    cp -- "$tmp/compare.tsv" "$tmp/report"
-  fi
-  if [[ -t 0 && -t 1 && $format == table && $no_pager == 0 ]] && command -v less >/dev/null; then
-    less -FRSX < "$tmp/report"
-  else
-    while IFS= read -r line; do printf '%s\n' "$line"; done < "$tmp/report"
-  fi
+[[ $distro == arch || $distro == apt ]] || die "Unsupported distribution: $distro"
+load_apps
+[[ $action != list ]] || exit 0
+((${#apps[@]})) || die 'No mapped apps in scope; use --selected for configs.txt on a fresh machine.'
+if [[ $distro == apt && $apply == 1 ]]; then run_command sudo apt-get update; fi
+resolve_apps
+if [[ $distro == apt ]]; then
+  if ((apply == 0)); then run_command sudo apt-get update; fi
+  run_command sudo apt-get install -- "${native[@]}"
 else
-  for file in "${manifests[@]}"; do
-    if ! cmp -s -- "$tmp/$file" "$data/$file"; then
-      staging=$(mktemp "$data/.snapshot.XXXXXX")
-      cp -- "$tmp/$file" "$staging"
-      chmod 644 "$staging"
-      mv -f -- "$staging" "$data/$file"
-      printf 'Updated %s\n' "$data/$file" >&2
-    fi
-  done
+  if ((${#aur[@]} && apply)); then
+    ((EUID != 0)) || die 'Run yay installation as a normal user, never root'
+  fi
+  if ((${#native[@]})); then run_command sudo pacman -Syu --needed -- "${native[@]}"; fi
+  if ((${#aur[@]})); then run_command yay -S --needed --aur -- "${aur[@]}"; fi
 fi

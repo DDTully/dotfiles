@@ -1,7 +1,0 @@
-[Unit]
-Description=Refresh dotfiles explicit package inventories
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/bash %h/dotfiles/utils/.config/pkgfiles/pkgfiles snapshot
-NoNewPrivileges=yes

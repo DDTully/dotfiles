@@ -1,7 +1,8 @@
-# Deliberate Stow selection. Edit before running pkgfiles stow --apply.
+# Desired configs for install --selected and stow. Edit for the destination host.
 bash
 bat
 ghostty
+herdr
 nvim
 starship
 tmux
