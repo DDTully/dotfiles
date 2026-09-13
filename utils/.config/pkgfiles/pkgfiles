@@ -115,6 +115,47 @@ resolve_apps() {
   ((missing == 0)) || die 'Unresolved packages; no packages were installed.'
 }
 
+install_devtools() {
+  : "Install user-owned Node/Rust toolchains and distro Go without editing profiles."
+  local nvm_dir=${NVM_DIR:-$HOME/.nvm} cargo_home=${CARGO_HOME:-$HOME/.cargo}
+  local temp_dir=${TMPDIR:-/tmp}/pkgfiles-devtools.PREVIEW
+  if ((apply)); then
+    ((EUID != 0)) || die 'Run devtools as a normal user; only OS packages use sudo'
+    temp_dir=$(mktemp -d)
+    devtools_tmp=$temp_dir
+    trap 'rm -rf -- "$devtools_tmp"' EXIT
+  else
+    printf 'pkgfiles: PREVIEW paths represent temporary downloads; no commands run.\n' >&2
+  fi
+  if [[ $distro == apt ]]; then
+    run_command sudo apt-get update
+    run_command sudo apt-get install -- ca-certificates curl git build-essential golang-go
+  else
+    run_command sudo pacman -Syu --needed -- ca-certificates curl git base-devel go
+  fi
+  if [[ ! -s $nvm_dir/nvm.sh ]]; then
+    run_command curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 \
+      https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.7/install.sh -o "$temp_dir/nvm-install.sh"
+    run_command env PROFILE=/dev/null NVM_DIR="$nvm_dir" bash "$temp_dir/nvm-install.sh"
+  fi
+  # shellcheck disable=SC2016 # $NVM_DIR is for the inner bash -c, not this shell.
+  run_command env NVM_DIR="$nvm_dir" bash -c \
+    'source "$NVM_DIR/nvm.sh" && nvm install node && nvm alias default node'
+  if [[ ! -x $cargo_home/bin/rustup ]]; then
+    run_command curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 \
+      https://sh.rustup.rs -o "$temp_dir/rustup-install.sh"
+    run_command env CARGO_HOME="$cargo_home" bash "$temp_dir/rustup-install.sh" \
+      -y --no-modify-path --profile default --default-toolchain stable
+  fi
+  run_command "$cargo_home/bin/rustup" update stable
+  run_command "$cargo_home/bin/rustup" default stable
+  if ((apply)); then
+    rm -rf -- "$temp_dir"
+    trap - EXIT
+    printf 'pkgfiles: devtools installed. Open a new Bash terminal to load Node and Cargo.\n' >&2
+  fi
+}
+
 action=list apply=0 selected=0
 if [[ $# != 0 && $1 != -* ]]; then action=$1; shift; fi
 while (($#)); do
@@ -131,10 +172,12 @@ case $action in
     printf '%s\n' 'pkgfiles [list] [--selected]' \
       'pkgfiles install [--selected] [--apply]' \
       'pkgfiles stow [--apply]' \
+      'pkgfiles devtools [--apply]' \
       'Default scope: configs linked from HOME into this checkout.' \
       '--selected: use packages/configs.txt instead, including on a fresh machine.' \
       'install previews apt-get or pacman/yay commands; --apply executes them.' \
       'stow always uses configs.txt and simulates before applying.' \
+      'devtools: NVM/latest Node, stable Rust via rustup, and distro Go (independent of configs).' \
       'compare and restore are aliases for list and install.' \
       'Environment: PKGFILES_REPO, PKGFILES_DISTRO=arch|apt (testing override).'
     exit 0 ;;
@@ -143,10 +186,11 @@ case $action in
     exit 0 ;;
   compare) action=list ;;
   restore) action=install ;;
-  list|install|stow) ;;
+  list|install|stow|devtools) ;;
   *) die "Unknown command: $action" ;;
 esac
-[[ $apply == 0 || $action != list ]] || die '--apply is only valid for install or stow'
+[[ $apply == 0 || $action != list ]] || die '--apply is only valid for install, stow, or devtools'
+[[ $selected == 0 || $action != devtools ]] || die 'devtools does not use config selection'
 [[ $selected == 0 || $action != stow ]] || die 'stow already uses configs.txt'
 script=$(readlink -f -- "${BASH_SOURCE[0]}")
 repo=$(realpath -e -- "${PKGFILES_REPO:-${script%/utils/.config/pkgfiles/pkgfiles}}")
@@ -170,6 +214,7 @@ if [[ -z $distro ]]; then
   esac
 fi
 [[ $distro == arch || $distro == apt ]] || die "Unsupported distribution: $distro"
+if [[ $action == devtools ]]; then install_devtools; exit 0; fi
 load_apps
 [[ $action != list ]] || exit 0
 ((${#apps[@]})) || die 'No mapped apps in scope; use --selected for configs.txt on a fresh machine.'

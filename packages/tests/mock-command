@@ -13,6 +13,10 @@ printf '\n' >> "$FIXTURES/queries"
 [[ ${MOCK_FAIL:-} != "$tool" ]] || { printf 'database/command failure\n' >&2; exit 2; }
 package=${!#}
 case $tool in
+  curl)
+    output_option=${*: -2:1}
+    [[ ${DEVTOOLS_INSTALLER:-} && $output_option == -o ]] || exit 99
+    cp "$DEVTOOLS_INSTALLER" "$package" ;;
   pacman)
     [[ $1 == -Si && $2 == -- ]] || exit 99
     if ! contains "${MOCK_NATIVE:-}" "$package"; then

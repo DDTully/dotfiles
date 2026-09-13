@@ -4,6 +4,7 @@ shopt -s inherit_errexit
 
 root=$(realpath "${BASH_SOURCE[0]%/*}/../..")
 bash "$root/packages/tests/stow.sh"
+bash "$root/packages/tests/devtools.sh"
 tmp=$(mktemp -d /tmp/opencode/pkgfiles-test.XXXXXX)
 trap 'rm -rf -- "$tmp"' EXIT
 export PKGFILES_REPO="$tmp/repo with spaces" HOME="$tmp/home with spaces"

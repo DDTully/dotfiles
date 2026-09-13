@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+case ${BASH_SOURCE[0]##*/} in
+  nvm-install.sh)
+    [[ $PROFILE == /dev/null ]] || exit 99
+    mkdir -p "$NVM_DIR"
+    cp "$DEVTOOLS_INSTALLER" "$NVM_DIR/nvm.sh"
+    printf 'install nvm\n' >> "$FIXTURES/calls" ;;
+  nvm.sh)
+    nvm() {
+      : "Record Node setup without fetching or running Node."
+      printf 'nvm %s\n' "$*" >> "$FIXTURES/calls"
+      [[ ${MOCK_NODE_FAIL:-0} != 1 ]]
+    } ;;
+  rustup-install.sh)
+    [[ $* == '-y --no-modify-path --profile default --default-toolchain stable' ]] || exit 99
+    mkdir -p "$CARGO_HOME/bin"
+    cp "$DEVTOOLS_INSTALLER" "$CARGO_HOME/bin/rustup"
+    chmod +x "$CARGO_HOME/bin/rustup"
+    printf 'install rustup\n' >> "$FIXTURES/calls" ;;
+  rustup)
+    printf 'rustup %s\n' "$*" >> "$FIXTURES/calls" ;;
+  *) exit 99 ;;
+esac

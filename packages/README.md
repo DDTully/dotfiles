@@ -23,6 +23,8 @@ pkgfiles install --selected      # Preview installation for that selection
 pkgfiles install --selected --apply
 pkgfiles stow                    # Print the Stow command for configs.txt
 pkgfiles stow --apply            # Simulate first, then link if there are no conflicts
+pkgfiles devtools                # Preview NVM/latest Node, stable Rust, and distro Go setup
+pkgfiles devtools --apply        # Install them; run as a normal user, never root
 ```
 
 Before sourcing or stowing anything, the same helper works as
@@ -92,6 +94,24 @@ check and installation. Package-manager prompts are retained. Command failures
 propagate, and earlier successful installs are not rolled back. Reports and plans
 go to stdout; helper status and errors go to stderr.
 
+## Runtime Toolchains
+
+`devtools` is independent of stowed configs and `--selected`. It installs:
+
+- **Node:** NVM v0.40.7 with `PROFILE=/dev/null` (your shell profiles are never
+  edited), then the latest Node release set as the default. Existing NVM
+  installations are reused, never reinstalled.
+- **Rust:** rustup with `--no-modify-path`, default profile, and the stable
+  toolchain; an existing rustup is updated rather than reinstalled.
+- **Go:** distro packages (`golang-go` on apt, `go` on pacman) plus build
+  prerequisites (`ca-certificates`, `curl`, `git`, `build-essential`/`base-devel`).
+
+Downloaded installers go to a temporary directory that is removed on success or
+failure; preview mode prints the commands with a `PREVIEW` placeholder path and
+runs nothing. `.bashrc` already sources NVM and Cargo when present and adds
+`~/go/bin` to `PATH`, so open a new terminal after applying. Only the OS
+packages use `sudo`; refuse to run `devtools --apply` as root.
+
 Requires Bash 4.4+, GNU coreutils, and the matching package tools. Distro detection
 uses `/etc/os-release` (`ID`/`ID_LIKE`). `PKGFILES_REPO` overrides the checkout;
 `PKGFILES_DISTRO=arch|apt` is for tests or previews with the corresponding tools
@@ -116,16 +136,18 @@ systemctl --user stop pkgfiles-snapshot.service
 
 ```bash
 bash packages/tests/test.sh
-shellcheck utils/.config/pkgfiles/pkgfiles packages/tests/{test.sh,stow.sh,mock-command}
+shellcheck utils/.config/pkgfiles/pkgfiles packages/tests/{test.sh,stow.sh,devtools.sh,mock-command,mock-devtools-installer}
 bash -n bash/bashfuncs.sh
 bash -n utils/.config/pkgfiles/pkgfiles
-for file in packages/tests/{test.sh,stow.sh,mock-command}; do bash -n "$file"; done
+for file in packages/tests/{test.sh,stow.sh,devtools.sh,mock-command,mock-devtools-installer}; do bash -n "$file"; done
 git diff --check
 ```
 
 Tests use temporary checkouts/HOMEs under `/tmp/opencode` and mocked package
 managers/sudo. They cover linked vs saved selection, folded/file links, copies and
-wrong/broken links, APT availability, pacman/yay routing, missing tools/packages,
+wrong/broken links, APT availability, pacman/yay routing, devtools previews and
+mocked installs on both distros (including failure cleanup and reinstall
+idempotence), missing tools/packages,
 failed queries/installs, invalid input, legacy snapshot preservation, and the shell
 wrapper. Real GNU Stow tests cover previews, repeated apply, conflicts, paths with
 spaces, and selection validation; they report a skip if Stow is unavailable.

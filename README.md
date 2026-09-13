@@ -7,7 +7,8 @@ config-driven app installation also supports Debian/Ubuntu and their derivatives
 This is a working personal setup, not an unattended workstation installer. Stow
 links configuration into your home directory; it does not install applications.
 `pkgfiles` lists linked configs and installs their apps with apt or pacman/yay.
-Machine-specific paths need review before use.
+`pkgfiles devtools` installs user-owned Node (via NVM), Rust (via rustup), and
+distro Go toolchains. Machine-specific paths need review before use.
 
 ## Navigation
 
@@ -221,7 +222,7 @@ pkgfiles install          # Check availability and preview install commands
 pkgfiles install --apply  # Install apps for those linked configs
 ```
 
-The mapped apps are Bash, bat, Ghostty, Neovim, Starship, tmux, and Yazi.
+The mapped apps are Bash, bat, Ghostty, Herdr, Neovim, Starship, tmux, and Yazi.
 `utils` and `skills` are explicitly skipped during installation because they do not
 correspond to single OS packages. Optional utility dependencies remain separate.
 The report checks representative config links, including folded directory links;
@@ -233,6 +234,18 @@ APT uses candidate versions from the current release's configured sources.
 Unresolved apps are reported before package installation; check sources or edit the
 saved selection and use `--selected`. No third-party repositories are added.
 See [package-manager details](packages/README.md#package-managers).
+
+Runtime toolchains are independent of stowed configs:
+
+```bash
+pkgfiles devtools          # Preview NVM/latest Node, stable Rust, and distro Go setup
+pkgfiles devtools --apply  # Install them; run as a normal user, never root
+```
+
+This installs NVM without touching shell profiles, then the latest Node release as
+the default; installs rustup without touching `PATH` and selects stable Rust; and
+installs Go from apt or pacman. `.bashrc` already sources NVM and Cargo when
+present and adds `~/go/bin` to `PATH`, so open a new terminal after applying.
 
 ## Restore a Machine
 
@@ -334,7 +347,8 @@ bash packages/tests/test.sh
 The suite uses temporary repositories/HOMEs and mocked package managers and sudo.
 It also runs **real GNU Stow in temporary directories** when installed, otherwise
 reports a skip. Tests cover linked vs saved selections, package availability,
-APT and pacman/yay routing, failures, Stow conflicts, repeated apply, paths with
+APT and pacman/yay routing, devtools previews and mocked installs for both
+distros, failures, Stow conflicts, repeated apply, paths with
 spaces, and input validation. No packages are installed and no live HOME links change.
 
 Additional static checks, with ShellCheck installed:
@@ -343,8 +357,8 @@ Additional static checks, with ShellCheck installed:
 bash -n bash/.bashrc
 bash -n bash/bashfuncs.sh
 bash -n utils/.config/pkgfiles/pkgfiles
-for file in packages/tests/{test.sh,stow.sh,mock-command}; do bash -n "$file"; done
-shellcheck utils/.config/pkgfiles/pkgfiles packages/tests/{test.sh,stow.sh,mock-command}
+for file in packages/tests/{test.sh,stow.sh,devtools.sh,mock-command,mock-devtools-installer}; do bash -n "$file"; done
+shellcheck utils/.config/pkgfiles/pkgfiles packages/tests/{test.sh,stow.sh,devtools.sh,mock-command,mock-devtools-installer}
 git diff --check
 ```
 
