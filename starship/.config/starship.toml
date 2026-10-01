@@ -17,8 +17,7 @@ disabled = false
 [os.symbols]
 Windows = " "
 Ubuntu = " "
-Arch = "󰣇 "
-CachyOS = "󰣇 "
+Linux = " "
 
 [character]
 error_symbol = "[✗](bold cyan)"
