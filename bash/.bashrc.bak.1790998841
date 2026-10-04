@@ -32,6 +32,8 @@ alias ga='git add .'
 alias gcam='git commit -a -m'
 alias reload='exec $SHELL -l'
 alias bcwd='dolphin --new-window . >/dev/null 2>&1 & disown'
+alias obsidian='obsidian_appimage >/dev/null 2>&1 & disown'
+alias openshot='openshot_appimage >/dev/null 2>&1 & disown'
 alias ff='f() { rg -l -uu -i -F --no-messages "$*" | fzf --preview "bat --style=numbers --color=always {}" --bind "enter:execute($EDITOR {} )"; }; f'
 [ -s "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 export PATH="$HOME/go/bin:$PATH"
@@ -41,8 +43,3 @@ alias karaoke='pikaraoke --headless --disable-bg-music --streaming-format mp4 --
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
-
-# >>> grok installer >>>
-export PATH="$HOME/.grok/bin:$PATH"
-[[ -r "$HOME/.grok/completions/bash/grok.bash" ]] && source "$HOME/.grok/completions/bash/grok.bash"
-# <<< grok installer <<<
