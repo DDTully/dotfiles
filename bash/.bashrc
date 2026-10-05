@@ -31,7 +31,7 @@ alias dact='deactivate'
 alias ga='git add .'
 alias gcam='git commit -a -m'
 alias reload='exec $SHELL -l'
-alias bcwd='dolphin --new-window . >/dev/null 2>&1 & disown'
+alias bcwd='nautilus --new-window . >/dev/null 2>&1 & disown'
 alias ff='f() { rg -l -uu -i -F --no-messages "$*" | fzf --preview "bat --style=numbers --color=always {}" --bind "enter:execute($EDITOR {} )"; }; f'
 [ -s "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 export PATH="$HOME/go/bin:$PATH"
@@ -46,3 +46,11 @@ export NVM_DIR="$HOME/.nvm"
 export PATH="$HOME/.grok/bin:$PATH"
 [[ -r "$HOME/.grok/completions/bash/grok.bash" ]] && source "$HOME/.grok/completions/bash/grok.bash"
 # <<< grok installer <<<
+
+. "$HOME/.local/share/../bin/env"
+
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/home/tully/Sync/randomcode/temp/google-cloud-sdk/path.bash.inc' ]; then . '/home/tully/Sync/randomcode/temp/google-cloud-sdk/path.bash.inc'; fi
+
+# The next line enables shell command completion for gcloud.
+if [ -f '/home/tully/Sync/randomcode/temp/google-cloud-sdk/completion.bash.inc' ]; then . '/home/tully/Sync/randomcode/temp/google-cloud-sdk/completion.bash.inc'; fi

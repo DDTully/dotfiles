@@ -1,3 +1,8 @@
 onboarding = false
 [ui]
 agent_panel_sort = "spaces"
+tab_bar_position = "top"
+accent = "cyan"
+
+[theme]
+name = "catppuccin"
