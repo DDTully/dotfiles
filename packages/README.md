@@ -50,7 +50,6 @@ utils - - .config/pkgfiles/pkgfiles
 | herdr | herdr (Arch: AUR/yay; APT candidate required) |
 | nvim | neovim |
 | starship | starship |
-| tmux | tmux |
 | yazi | yazi |
 | utils, skills | No single OS package; explicitly skipped |
 

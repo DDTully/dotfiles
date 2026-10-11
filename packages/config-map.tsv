@@ -7,7 +7,6 @@ ghostty ghostty ghostty .config/ghostty/config
 herdr herdr herdr .config/herdr/config.toml
 nvim neovim neovim .config/nvim/init.lua
 starship starship starship .config/starship.toml
-tmux tmux tmux .tmux.conf
 yazi yazi yazi .config/yazi/yazi.toml
 utils - - .config/pkgfiles/pkgfiles
 skills - - .agent_skills

@@ -7,7 +7,7 @@ Repo manages personal dotfiles/dev env configs via GNU Stow.
 - **Structure**: Each top-level dir = Stow package symlinking into `$HOME`
 - **OS**: Arch Linux (primary), Debian/Ubuntu
 - **Shell**: Bash
-- **Desktop**: Wayland/KDE
+- **Desktop**: Wayland / Hyprland (Omarchy)
 - **Dependency**: GNU Stow
 
 ## Packages
@@ -15,11 +15,12 @@ Repo manages personal dotfiles/dev env configs via GNU Stow.
 - `bash`: Bashrc, aliases, PATH, env vars
 - `bat`: bat (cat replacement) config
 - `ghostty`: Ghostty terminal config
+- `herdr`: Herdr workspace config
 - `nvim`: Neovim config
 - `starship`: Cross-shell prompt config
-- `tmux`: tmux config
 - `yazi`: Terminal file manager config
-- `utils`: Utility scripts — `ns` (network scanner), `fzftunes` (music), `randomcode`
+- `utils`: Utility scripts — `ns` (network scanner), `fzftunes` (music), `randomcode`, `pkgfiles`
+- `packages`: Config selection, package mapping, and installer tests. Not a Stow package.
 - `skills`: Agent skill defs for Claude (`.claude/`) and OpenCode (`.opencode/`)
 
 ## Common Commands
@@ -51,7 +52,7 @@ stow <package-name>
 - Log/status → stderr; data → stdout
 - No `eval`; commands as arrays
 - Threading: GNU `parallel`, not `xargs`
-- Wayland/KDE env — no X11 tools; use `xdg-open` for URI dispatch
+- Wayland/Hyprland env — no X11 tools; use `xdg-open` for URI dispatch
 
 ## Notes
 

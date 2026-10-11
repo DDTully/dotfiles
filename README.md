@@ -1,7 +1,7 @@
 # dotfiles
 
 Personal Bash, terminal, editor, and utility configuration managed with **GNU Stow**.
-The primary environment is Arch Linux (including CachyOS), Bash, and KDE on Wayland;
+The primary environment is Arch Linux (including CachyOS and Omarchy), Bash, and Hyprland on Wayland;
 config-driven app installation also supports Debian/Ubuntu and their derivatives.
 
 This is a working personal setup, not an unattended workstation installer. Stow
@@ -41,8 +41,7 @@ directory rather than each file individually; both layouts are normal.
 | [`herdr`](herdr/.config/herdr/config.toml) | `.config/herdr/config.toml` | Disable onboarding; sort agent panels by spaces. Arch install uses AUR/yay; APT availability depends on configured sources. |
 | [`nvim`](nvim/.config/nvim/) | `.config/nvim/` | LazyVim via lazy.nvim, plugin overrides, Markdown/wiki tooling |
 | [`starship`](starship/.config/starship.toml) | `.config/starship.toml` | Shell prompt configuration |
-| [`tmux`](tmux/.tmux.conf) | `.tmux.conf` | Ctrl-Space prefix, pane/window bindings, Catppuccin, TPM plugins |
-| [`utils`](utils/.config/) | `.config/{addskill,mp4thumb,music,netscan,pkgfiles,randomcode,tms-util}/` | Local scripts and the config-driven app installer |
+| [`utils`](utils/.config/) | `.config/{addskill,mp4thumb,music,netscan,pkgfiles,randomcode}/` | Local scripts and the config-driven app installer |
 | [`yazi`](yazi/.config/yazi/yazi.toml) | `.config/yazi/yazi.toml` | Show hidden files |
 | [`skills`](skills/) | `.agent_skills/`, `.claude/skills/`, `.opencode/skills/`, `.agents/skills/` | Shared agent skill sources and client-facing links |
 
@@ -79,8 +78,7 @@ Additional requirements depend on what you select:
 | `pkgfiles` | Bash 4.4+, GNU coreutils, apt-get/apt-cache or pacman; yay for apps only available in the AUR |
 | Bash setup | `starship` is called at startup; `eza` backs `ls`/`lt`; search helpers use `fzf`, `rg` (ripgrep), `bat`, and `$EDITOR` |
 | Neovim | A Neovim version compatible with current LazyVim, Git, and network access for plugin bootstrap; language tools depend on enabled plugins |
-| tmux | A recent tmux supporting the configured terminal options, Git/network access for TPM bootstrap, and a font with the configured glyphs |
-| Desktop helpers | KDE/Dolphin and Wayland-oriented tools where used; URI dispatch uses `xdg-open` |
+| Desktop helpers | Hyprland and Wayland-oriented tools where used; URI dispatch uses `xdg-open` |
 | Utilities | Separate dependencies listed [below](#utilities); stowing does not install them |
 
 Package names and binary names can differ by distribution. For example, Debian
@@ -91,21 +89,18 @@ installations may expose `batcat` and `fdfind`, while these scripts call `bat` a
 
 Review [`bash/.bashrc`](bash/.bashrc) before replacing your shell configuration:
 
-- `EDITOR` points to `/opt/nvim-linux-x86_64/bin/nvim`, not simply `nvim` on PATH.
-- `BROWSER` is `google-chrome-stable`; aliases reference Dolphin, AppImage wrappers,
-  PiKaraoke, Docker, Bun, and a script under `~/Sync/randomcode/ytmusic_search/`.
-- Startup unconditionally initializes Starship, sources `~/bashfuncs.sh`, and sources
-  `~/.cargo/env`. Missing Starship or Rust environment files can produce errors.
-- PATH includes `/usr/lib`, a Steam Blender directory, and local tool directories.
-  Review both the directories and their ordering for your machine.
-- Optional envman, local environment, and NVM files are sourced when present but
-  are not supplied by this repository.
+- `EDITOR` is `nvim` on `PATH`.
+- `BROWSER` is `google-chrome-stable`; aliases reference Nautilus (`bcwd`), Docker,
+  Bun, and a script under `~/Sync/randomcode/ytmusic_search/`.
+- Startup unconditionally initializes Starship and sources `~/bashfuncs.sh`.
+  Missing Starship produces an error. Cargo, envman, the local `env` file, and NVM
+  are sourced only when present, and are not supplied by this repository.
+- PATH includes a Steam Blender directory and local tool directories. Review both
+  the directories and their ordering for your machine.
 - Neovim's wiki paths point to `~/Sync/work/wiki` and `~/Sync/personal/wiki`.
-- tmux references `~/.tmux/custom_number.sh`, which is not tracked here. Supply that
-  helper or simplify the window formats before expecting the full status display.
 
-Loading Neovim or tmux for the first time can download plugins. Neither application's
-startup should be treated as an offline, read-only configuration check.
+Loading Neovim for the first time can download plugins. That startup should not be
+treated as an offline, read-only configuration check.
 
 ## Safe Setup
 
@@ -152,8 +147,8 @@ Do not run Stow with `sudo` for these HOME configurations.
 ### Relink or Remove
 
 ```bash
-stow --simulate --verbose --restow --target="$HOME" bash nvim tmux
-stow --verbose --restow --target="$HOME" bash nvim tmux
+stow --simulate --verbose --restow --target="$HOME" bash nvim ghostty
+stow --verbose --restow --target="$HOME" bash nvim ghostty
 
 stow --simulate --verbose --delete --target="$HOME" yazi
 stow --verbose --delete --target="$HOME" yazi
@@ -208,9 +203,8 @@ directory, and the commit includes **all already-staged changes across the repos
 including unrelated work. Inspect both the worktree and index first, or use explicit
 file staging and separate commit/push commands instead.
 
-In tmux, the prefix is **Ctrl-Space**, not Ctrl-B. Prefix + `v` splits side by side,
-`s` splits top/bottom, `w` opens the tree, and `r` reloads the config. Ghostty leaves
-Ctrl-Shift-Left/Right unbound for tmux window navigation; F11 toggles fullscreen.
+Ghostty uses Catppuccin Mocha, leaves Ctrl-C/Ctrl-V able to copy and paste, and
+toggles fullscreen with F11.
 
 ## Configured Apps
 
@@ -222,7 +216,7 @@ pkgfiles install          # Check availability and preview install commands
 pkgfiles install --apply  # Install apps for those linked configs
 ```
 
-The mapped apps are Bash, bat, Ghostty, Herdr, Neovim, Starship, tmux, and Yazi.
+The mapped apps are Bash, bat, Ghostty, Herdr, Neovim, Starship, and Yazi.
 `utils` and `skills` are explicitly skipped during installation because they do not
 correspond to single OS packages. Optional utility dependencies remain separate.
 The report checks representative config links, including folded directory links;
@@ -286,12 +280,10 @@ point installed separately.
 | [`mp4thumb`](utils/.config/mp4thumb/mp4thumb) | `mp4thumb`, `mp4thumb --help`; interactively chooses an MP4 and writes its first frame as a neighboring PNG | `ffmpeg`, `fzf`, `fd`, `chafa`, `kitten`; this is a file-writing operation |
 | [`fzftunes`](utils/.config/music/fzftunes) | `bash utils/.config/music/fzftunes "search terms"`; YouTube search and MPD playback; also `controls`, `pause`, `resume`, `toggle`, `stop`, `next`, `prev`, `status`, `queue`, `queue-menu`, `relabel-queue`, `clear` | `yt-dlp`, `fzf`, `mpc`, running MPD; use `--help` for search settings and queue keys |
 | [`randomcode`](utils/.config/randomcode/) | `randomcode project-name`; creates/focuses a herdr workspace for a single folder under `~/Sync/randomcode`, creating the folder if absent | Python 3.12+, herdr, and the expected shell/editor setup; [installation notes](utils/.config/randomcode/README.md) |
-| [`tms`](utils/.config/tms-util/tms) | `tms --no-install`; interactive NEW/ATTACH/KILL/RELOAD CONFIG herdr workspace menu | herdr, `jq`, `fzf`; expects the herdr environment, `pact`, Neovim, and OpenCode. Without `--no-install`, may offer a privileged copy to `/usr/bin/tms` |
 | [`addskill`](utils/.config/addskill/addskill) | `addskill /path/to/skill`; copies a directory into `~/dotfiles/skills/.agent_skills` and creates all three client links | Hard-coded checkout location; **replaces existing same-name source and client paths**. Back up and review first; restow `skills` if needed |
 
-Despite their names/history, `tms` and `randomcode` currently manage **herdr**, not
-tmux sessions. Their generated workspace commands assume project virtual environments
-and the supplied Bash aliases.
+`randomcode` manages herdr workspaces. Its generated workspace commands assume project
+virtual environments and the supplied Bash aliases.
 
 The separate [`install-fzftunes`](utils/.config/music/install-fzftunes) script is a
 mutating installer: it installs dependencies, configures MPD, attempts to enable its
@@ -313,13 +305,13 @@ separately, using storage appropriate for sensitive data:
   local `.deb` files, and any versions required for reproduction.
 - Manually downloaded binaries, AppImages, Flatpaks, Cargo tools, pip/uv environments,
   npm/Bun tools, and applications under `/opt`; `pkgfiles` does not inventory them.
-- Untracked helpers such as `~/.tmux/custom_number.sh`, shell startup/profile files
-  outside the catalog, and externally installed agent skill targets.
+- Shell startup and profile files outside the catalog, and externally installed
+  agent skill targets.
 
-The root [`.gitignore`](.gitignore) excludes `.env`, `lazy-lock.json`, and `*.conf.bak*`;
-it is not a comprehensive secret filter. In particular, the usual Neovim lockfile is
-ignored, so a fresh plugin bootstrap is not guaranteed to reproduce exact revisions.
-Review `git status`, unstaged changes, and staged changes before every commit.
+The root [`.gitignore`](.gitignore) excludes `.env` and `*.conf.bak*`; it is not a
+comprehensive secret filter. Neovim's `lazy-lock.json` is tracked so a fresh checkout
+can reproduce plugin revisions. Review `git status`, unstaged changes, and staged
+changes before every commit.
 
 ## Troubleshooting
 
@@ -328,9 +320,9 @@ Review `git status`, unstaged changes, and staged changes before every commit.
 | Stow reports a conflict | Compare the specific existing target with the source, back it up, and move only that target aside deliberately. Retry simulation; do not delete entire config directories or adopt blindly |
 | A selected config says `unlinked` | Check `readlink -f "$HOME/.config/nvim/init.lua"` (substitute the mapped probe). A plain copy or another checkout is not a link to this repository |
 | `pkgfiles: command not found` | Source `bash/bashfuncs.sh`, or invoke `bash utils/.config/pkgfiles/pkgfiles ...` from the repo root; stowing `utils` alone does not define the function |
-| Shell startup reports missing commands/files | Review Starship, `~/.cargo/env`, `~/bashfuncs.sh`, and the hard-coded `EDITOR`. Install intended dependencies or adapt the config before reloading |
+| Shell startup reports missing commands/files | Review Starship and `~/bashfuncs.sh`. Cargo, envman, and NVM are optional and only sourced when present |
 | bat cannot find Catppuccin Mocha | After linking themes, run `bat cache --build` with the intended bat executable |
-| tmux status numbers/icons are missing | Check the untracked custom-number helper, font glyph coverage, terminal capabilities, and TPM installation |
+| Ghostty ignores Catppuccin Mocha | `~/.config/ghostty/config` is not always the Stow link. Confirm `theme = catppuccinmocha` in the file Ghostty actually reads, and that `themes/catppuccinmocha` resolves into this checkout |
 | Install cannot find a package | Check distro/release and configured sources. Edit configs.txt and use `--selected` to omit unavailable apps; install them separately if needed |
 | No apps in scope on a fresh machine | Use `pkgfiles install --selected` to read configs.txt before HOME links exist |
 | Utility is absent from PATH | Check the utility table: music uses an explicit path or separate installer, randomcode uses an installed Python entry point, and shell functions require sourcing |

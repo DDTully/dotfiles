@@ -19,21 +19,24 @@ shipit() {
 }
 
 mkcd() {
+  : "Create a directory and enter it."
   mkdir -p "$1" && cd "$1"
 }
 dcrm() {
+  : "Stop and remove the named Docker containers."
   if [ $# -eq 0 ]; then
-    echo "Usage: dcrm <container_name_or_id> [more_containers...]"
+    printf 'Usage: dcrm <container_name_or_id> [more_containers...]\n' >&2
     return 1
   fi
   for container in "$@"; do
-    echo "Stopping container: $container..."
+    printf 'Stopping container: %s...\n' "$container" >&2
     docker stop "$container"
-    echo "Removing container: $container..."
+    printf 'Removing container: %s...\n' "$container" >&2
     docker rm "$container"
   done
 }
 dcsh() {
+  : "Open a shell or run a command in a Docker container."
   local all=0
   local user=""
   local container=""
@@ -47,7 +50,7 @@ dcsh() {
       ;;
     -u | --user)
       if [[ $# -lt 2 || "$2" == "--" || "$2" == -* ]]; then
-        echo "dcsh: --user requires a value" >&2
+        printf 'dcsh: --user requires a value\n' >&2
         return 2
       fi
       user="$2"
@@ -72,12 +75,12 @@ EOF
       break
       ;;
     -*)
-      echo "dcsh: unknown option: $1" >&2
+      printf 'dcsh: unknown option: %s\n' "$1" >&2
       return 2
       ;;
     *)
       if [[ -n "$container" ]]; then
-        echo "dcsh: unexpected argument: $1" >&2
+        printf 'dcsh: unexpected argument: %s\n' "$1" >&2
         return 2
       fi
       container="$1"
@@ -87,23 +90,23 @@ EOF
   done
 
   if [[ -z "$container" ]]; then
-    echo "Usage: dcsh [-a|--all] [-u USER] <container> [-- [command ...]]" >&2
+    printf 'Usage: dcsh [-a|--all] [-u USER] <container> [-- [command ...]]\n' >&2
     return 1
   fi
 
   if ((all)); then
     if ! docker ps --format '{{.Names}}' | grep -qx "$container"; then
       if docker ps -a --format '{{.Names}}' | grep -qx "$container"; then
-        echo "Starting container: $container..."
+        printf 'Starting container: %s...\n' "$container" >&2
         docker start "$container" >/dev/null || return $?
       else
-        echo "dcsh: container not found: $container" >&2
+        printf 'dcsh: container not found: %s\n' "$container" >&2
         return 1
       fi
     fi
   else
     if ! docker ps --format '{{.Names}}' | grep -qx "$container"; then
-      echo "dcsh: container is not running: $container (use -a to start it)" >&2
+      printf 'dcsh: container is not running: %s (use -a to start it)\n' "$container" >&2
       return 1
     fi
   fi
@@ -127,6 +130,7 @@ EOF
 }
 
 __dock_names() {
+  : "Print Docker container names, all of them when the argument is all."
   if [[ "$1" == "all" ]]; then
     docker ps -a --format '{{.Names}}'
   else
@@ -135,19 +139,31 @@ __dock_names() {
 }
 
 __dock_user_list() {
+  : "Print user names defined inside a container."
   local container="$1"
   docker exec "$container" sh -lc '
     (command -v getent >/dev/null 2>&1 && getent passwd) || cat /etc/passwd 2>/dev/null
   ' 2>/dev/null | awk -F: '{print $1}'
 }
 
+__reply_matching() {
+  : "Set COMPREPLY from stdin lines that start with the given prefix."
+  local prefix=$1 line
+  COMPREPLY=()
+  while IFS= read -r line; do
+    [[ -n $line && $line == "$prefix"* ]] && COMPREPLY+=("$line")
+  done
+}
+
 __complete_dcrm() {
-  local cur prev
+  : "Complete dcrm with every container name."
+  local cur
   cur="${COMP_WORDS[COMP_CWORD]}"
-  COMPREPLY=($(compgen -W "$(__dock_names all)" -- "$cur"))
+  __reply_matching "$cur" < <(__dock_names all)
 }
 
 __complete_dcsh() {
+  : "Complete dcsh options, container names, and container users."
   local cur prev words want_all=0 container=""
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
@@ -181,7 +197,7 @@ __complete_dcsh() {
 
   if [[ "$prev" == "-u" || "$prev" == "--user" ]]; then
     if [[ -n "$container" ]]; then
-      COMPREPLY=($(compgen -W "$(__dock_user_list "$container")" -- "$cur"))
+      __reply_matching "$cur" < <(__dock_user_list "$container")
     else
       COMPREPLY=()
     fi
@@ -191,14 +207,14 @@ __complete_dcsh() {
   if [[ -z "$container" || "$cur" == "$container" ]]; then
     local scope="running"
     ((want_all)) && scope="all"
-    COMPREPLY=($(compgen -W "$(__dock_names "$scope")" -- "$cur"))
+    __reply_matching "$cur" < <(__dock_names "$scope")
     return 0
   fi
 
-  local opts="-a --all -u --user -h --help --"
-  COMPREPLY=($(compgen -W "$opts" -- "$cur"))
+  __reply_matching "$cur" < <(printf '%s\n' -a --all -u --user -h --help --)
 }
 _randomcode_completion() {
+  : "Complete randomcode with directory names under ~/Sync/randomcode."
   local cur search_dir
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
@@ -212,6 +228,7 @@ _randomcode_completion() {
 }
 
 frg() {
+  : "Live-search the Git root with ripgrep, fzf, and bat."
   local root
   root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 
@@ -232,8 +249,9 @@ frg() {
   )
 }
 cheat() {
+  : "Fetch a cheat.sh page and open a selected line in the editor."
   if [[ -z "$1" ]]; then
-    echo "Usage: cheat <command>"
+    printf 'Usage: cheat <command>\n' >&2
     return 1
   fi
 
@@ -241,7 +259,7 @@ cheat() {
   tmp="$(mktemp)" || return 1
 
   if ! curl -fsSL "https://cheat.sh/$1?T" -o "$tmp"; then
-    echo "Error: Failed to fetch cheat.sh/$1"
+    printf 'Error: Failed to fetch cheat.sh/%s\n' "$1" >&2
     rm -f "$tmp"
     return 1
   fi
@@ -264,6 +282,7 @@ cheat() {
 }
 
 update() {
+  : "Upgrade the system with apt or pacman."
   if command -v apt-get >/dev/null 2>&1; then
     sudo apt-get update &&
       sudo apt-get full-upgrade -y &&
@@ -271,7 +290,7 @@ update() {
   elif command -v pacman >/dev/null 2>&1; then
     sudo pacman -Syu
   else
-    echo "Unsupported Linux distribution." >&2
+    printf 'Unsupported Linux distribution.\n' >&2
     return 1
   fi
 }

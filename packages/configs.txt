@@ -5,6 +5,5 @@ ghostty
 herdr
 nvim
 starship
-tmux
 yazi
 utils

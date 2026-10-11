@@ -11,7 +11,7 @@ export PKGFILES_REPO="$tmp/repo with spaces" HOME="$tmp/home with spaces"
 export FIXTURES="$tmp/fixtures" PKGFILES_DISTRO=arch
 mkdir -p "$PKGFILES_REPO/packages" "$HOME/.config" "$FIXTURES" "$tmp/bin"
 cp "$root/packages/config-map.tsv" "$root/packages/configs.txt" "$PKGFILES_REPO/packages/"
-for config in bash bat ghostty herdr nvim starship tmux yazi utils skills; do
+for config in bash bat ghostty herdr nvim starship yazi utils skills; do
   mkdir -p "$PKGFILES_REPO/$config"
 done
 cp -a "$root/bash" "$root/bat" "$root/nvim" "$PKGFILES_REPO/"

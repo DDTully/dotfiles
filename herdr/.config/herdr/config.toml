@@ -6,3 +6,4 @@ accent = "cyan"
 
 [theme]
 name = "catppuccin"
+auto_switch = false
