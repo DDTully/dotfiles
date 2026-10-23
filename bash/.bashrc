@@ -30,7 +30,7 @@ source "$HOME/bashfuncs.sh"
 
 alias ls="eza --long --git"
 alias lt="eza --long --git --tree --level 99"
-alias bcwd='nautilus --new-window . >/dev/null 2>&1 & disown'
+alias bcwd='flea . >/dev/null 2>&1 & disown'
 alias ff='f() { rg -l -uu -i -F --no-messages "$*" | fzf --preview "bat --style=numbers --color=always {}" --bind "enter:execute($EDITOR {} )"; }; f'
 
 alias ga='git add .'
