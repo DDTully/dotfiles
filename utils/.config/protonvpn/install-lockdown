@@ -1,0 +1,32 @@
+#!/bin/bash
+set -Eeuo pipefail
+shopt -s inherit_errexit
+
+if (( EUID != 0 )); then
+    printf 'Run with sudo or pkexec.\n' >&2
+    exit 1
+fi
+
+source_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+nft --check --file "$source_dir/lockdown.nft"
+
+if grep -Eq '(^|[[:space:]])vpn-api\.proton\.me([[:space:]]|$)' /etc/hosts; then
+    if ! grep -Eq '^185\.159\.159\.148[[:space:]]+vpn-api\.proton\.me[[:space:]]*$' /etc/hosts; then
+        printf 'Existing Proton API hosts entry differs; review it before installing.\n' >&2
+        exit 1
+    fi
+else
+    cp --no-clobber --preserve=all /etc/hosts /etc/hosts.before-protonvpn-lockdown
+    printf '\n185.159.159.148 vpn-api.proton.me\n' >> /etc/hosts
+fi
+
+install -o root -g root -m 644 "$source_dir/lockdown.nft" /etc/protonvpn-lockdown.nft
+install -o root -g root -m 644 "$source_dir/protonvpn-lockdown.service" /etc/systemd/system/protonvpn-lockdown.service
+install -d -o root -g root -m 755 /etc/systemd/system/NetworkManager.service.d
+install -o root -g root -m 644 "$source_dir/networkmanager.conf" /etc/systemd/system/NetworkManager.service.d/protonvpn-lockdown.conf
+install -o root -g root -m 755 "$source_dir/disable-lockdown" /usr/local/sbin/protonvpn-lockdown-disable
+systemctl daemon-reload
+systemd-run --unit=protonvpn-lockdown-rollback --on-active=1m --collect /usr/local/sbin/protonvpn-lockdown-disable
+systemctl enable protonvpn-lockdown.service
+systemctl reload-or-restart protonvpn-lockdown.service
+printf 'VPN-only firewall enabled; existing UFW and Docker rules were not replaced.\nCancel the one-minute rollback after testing: sudo systemctl stop protonvpn-lockdown-rollback.timer\n' >&2

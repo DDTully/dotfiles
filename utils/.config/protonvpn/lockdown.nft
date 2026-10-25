@@ -1,0 +1,45 @@
+destroy table inet protonvpn_lockdown
+
+table inet protonvpn_lockdown {
+    set chicago_servers {
+        type ipv4_addr
+        elements = {
+            154.47.25.129, 154.47.25.145, 154.47.25.161, 154.47.25.206,
+            66.234.152.130, 66.234.152.162, 66.234.152.194, 66.234.152.2,
+            66.234.152.226, 66.234.152.34, 66.234.152.66, 66.234.152.98,
+            66.234.159.2, 66.234.159.34,
+            79.127.136.193, 79.127.136.222, 79.127.136.46, 79.127.136.58,
+            79.127.136.65, 79.127.136.92,
+            79.127.187.156, 79.127.187.185, 79.127.187.214, 79.127.187.243,
+            79.127.187.244, 79.127.187.245, 79.127.187.246,
+            79.127.220.243, 79.127.220.251,
+            87.249.134.138, 87.249.134.139,
+            89.187.180.1, 89.187.180.14, 89.187.180.27,
+            89.187.180.40, 89.187.180.54
+        }
+    }
+
+    chain output {
+        type filter hook output priority 10; policy drop;
+
+        oifname "lo" accept
+        oifname "proton0" accept
+        meta mark 0xea13b2c meta l4proto udp accept
+        ip daddr 185.159.159.148 tcp dport 443 accept
+        ip daddr @chicago_servers tcp dport { 443, 7770, 8443 } accept
+        ip daddr 255.255.255.255 udp sport 68 udp dport 67 accept
+        ip6 daddr ff02::1:2 udp sport 546 udp dport 547 accept
+        ip6 daddr { fe80::/10, ff02::/16 } icmpv6 type {
+            nd-router-solicit, nd-neighbor-solicit, nd-neighbor-advert
+        } accept
+        counter reject with icmpx type admin-prohibited
+    }
+
+    chain forward {
+        type filter hook forward priority 10; policy drop;
+
+        oifname "proton0" accept
+        iifname "proton0" ct state established,related accept
+        counter reject with icmpx type admin-prohibited
+    }
+}

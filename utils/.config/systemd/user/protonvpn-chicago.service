@@ -1,0 +1,17 @@
+[Unit]
+Description=Connect Proton VPN to Chicago at desktop login
+PartOf=graphical-session.target
+After=graphical-session-pre.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/bin/nm-online --quiet --timeout=60
+ExecStart=/usr/bin/protonvpn connect --country US --city Chicago
+RemainAfterExit=yes
+Restart=on-failure
+RestartSec=30
+TimeoutStartSec=180
+
+[Install]
+WantedBy=graphical-session.target

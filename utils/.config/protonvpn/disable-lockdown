@@ -1,0 +1,17 @@
+#!/bin/bash
+set -Eeuo pipefail
+shopt -s inherit_errexit
+
+if (( EUID != 0 )); then
+    printf 'Run with sudo or pkexec.\n' >&2
+    exit 1
+fi
+
+systemctl disable protonvpn-lockdown.service
+rm -f /etc/systemd/system/NetworkManager.service.d/protonvpn-lockdown.conf
+systemctl daemon-reload
+systemctl stop protonvpn-lockdown.service
+if nft list table inet protonvpn_lockdown &>/dev/null; then
+    nft delete table inet protonvpn_lockdown
+fi
+printf 'Custom VPN-only firewall disabled; Proton standard kill switch is unchanged.\n' >&2

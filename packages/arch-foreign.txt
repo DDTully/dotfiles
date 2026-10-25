@@ -6,7 +6,6 @@ google-chrome
 icu67
 kpeoplevcard-git
 lmstudio-bin
-nordvpn-bin
 opencode-bin
 path-of-building-community-git
 postman-bin
