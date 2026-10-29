@@ -18,6 +18,7 @@ disabled = false
 Windows = " "
 Ubuntu = " "
 Linux = " "
+Arch = " "
 
 [character]
 error_symbol = "[✗](bold cyan)"
